@@ -1,5 +1,3 @@
-import base64
-import cv2
 try:
     from .base import BasePlugin
 except (ImportError, ValueError):
@@ -13,6 +11,8 @@ class CameraPlugin(BasePlugin):
     def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Captures a single frame from the default webcam."""
         try:
+            import cv2
+            import base64
             # Index 0 is usually the default camera
             cap = cv2.VideoCapture(0)
             if not cap.isOpened():

