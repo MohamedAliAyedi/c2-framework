@@ -1,5 +1,7 @@
 # 🛸 Dali C 2x2: Professional Fleet Orchestration Framework
 
+![Dali Dashboard Banner](images/dashboard.png)
+
 Dali C 2x2 is a high-performance, job-oriented Command & Control (C2) framework designed for secure node orchestration, auditing, and real-time surveillance. It features a modern, glassmorphic Control Plane and a modular, plugin-based agent architecture with military-grade encryption and identity spoofing.
 
 ---
@@ -21,6 +23,8 @@ Dali C 2x2 is built on a distributed architecture that separates the **Control P
 ---
 
 ## 🛡️ Security & Ops Features
+
+![Dali Login Portal](images/login.png)
 
 ### 🔐 Encrypted Comms
 
