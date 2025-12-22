@@ -115,3 +115,12 @@ class DataStore:
             db.add(user)
             db.commit()
             return user
+
+    def delete_agent(self, agent_id: str):
+        with self.SessionLocal() as db:
+            agent = db.query(AgentModel).filter(AgentModel.id == agent_id).first()
+            if agent:
+                db.delete(agent)
+                db.commit()
+                return True
+            return False

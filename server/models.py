@@ -12,7 +12,7 @@ class AgentModel(Base):
     version = Column(String, default="1.0.0")
     last_seen = Column(DateTime, default=datetime.utcnow)
     info = Column(JSON, nullable=True) # Metadata: OS, User, etc.
-    tasks = relationship("TaskModel", back_populates="agent")
+    tasks = relationship("TaskModel", back_populates="agent", cascade="all, delete-orphan")
 
 class TaskModel(Base):
     __tablename__ = "tasks"

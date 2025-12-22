@@ -142,5 +142,13 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
+@app.delete("/api/agents/{agent_id}")
+async def delete_agent(agent_id: str, user: str = Depends(get_current_user)):
+    success = store.delete_agent(agent_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    await manager.broadcast({"event": "agent_deleted", "agent_id": agent_id})
+    return {"status": "success"}
+
 if __name__ == "__main__":
     uvicorn.run("server.main:app", host="0.0.0.0", port=8000, reload=True)
