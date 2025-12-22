@@ -1,72 +1,120 @@
-# 🛸 Dali C 2x2: Advanced Fleet Orchestration Framework
+# 🛸 Dali C 2x2: Professional Fleet Orchestration Framework
 
-Dali C 2x2 is a professional, job-oriented Command & Control (C2) framework built for secure node orchestration, auditing, and fleet management.
+Dali C 2x2 is a high-performance, job-oriented Command & Control (C2) framework designed for secure node orchestration, auditing, and fleet management. It features a modern Control Plane with real-time visibility and a modular, plugin-based agent architecture.
 
-![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)
-![Security](https://img.shields.io/badge/Auth-JWT-orange.svg)
-![Realtime](https://img.shields.io/badge/UI-WebSockets-purple.svg)
+![Framework Banner](images/dashboard.png)
 
 ## 🏗️ Technical Architecture
 
-- **Control Server**: FastAPI backend with **JWT Authentication**, **WebSocket** live-updates, and SQLite persistence.
-- **Dali Agent**: A modular, plugin-based execution engine.
-- **Plugin System**: Dynamically loads new capabilities (Shell, Sysinfo, Persist) from the `plugins/` directory.
+Dali C 2x2 is built on a distributed architecture that separates the **Control Plane** (Server) from the **Managed Nodes** (Agents).
+
+- **Control Plane (FastAPI)**: A secure, high-concurrency backend featuring:
+  - **JWT Authentication**: Secure operator access with hashed password storage (Bcrypt).
+  - **WebSocket Engine**: Real-time bi-directional communication for instant job feedback.
+  - **Tiered API**: Structured RESTful endpoints for agent registration, task management, and data export.
+  - **Audit Engine**: Permanent persistence of all orchestration history in SQLite.
+- **Managed Node (Dali Agent)**: A lightweight, asynchronous orchestrator featuring:
+  - **Plugin System**: A dynamic loader that allows drop-in capabilities without agent reconfiguration.
+  - **Persistent Identity**: Hardware-linked UUIDs stored locally in `.agent_id` to maintain inventory history.
+  - **Self-Healing Imports**: Intelligent path resolution for various deployment environments (Package, Script, or Compiled).
+
+---
+
+## 🖼️ Control Plane Visibility
+
+### Secure Login
+
+Operators must authenticate via the secure portal. Passwords are never stored in plaintext and are protected by modern cryptographic hashing.
+
+![Secure Login](images/login.png)
+
+### Real-Time Dashboard
+
+The dashboard provides a "God-eye" view of the entire fleet. Monitor node health, hardware telemetry, and job execution status in real-time.
+
+![Dashboard Overview](images/dashboard.png)
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Installation
+### 1. Environment Setup
+
+Clone the repository and install the high-performance dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Start the Control Plane
+### 2. Create an Operator Account
+
+Use the secure utility script to bootstrap your first operator:
+
+```bash
+python create_user.py admin MyStrongPassword123
+```
+
+### 3. Initialize the Control Plane
 
 ```bash
 python -m server.main
 ```
 
-- **URL**: `http://localhost:8000`
-- **Default Credentials**: `admin` / `password123`
+The interface is now active at `http://localhost:8000`.
 
-### 3. Deploy a Node (Agent)
+### 4. Deploy Managed Nodes
+
+Ensure the `C2_SERVER_URL` is set to point to your Control Plane:
 
 ```bash
-# Set server URL and run
+# On the target machine
 export C2_SERVER_URL="http://YOUR_SERVER_IP:8000"
-python -m agent.agent
+python agent/agent.py
 ```
 
 ---
 
-## 🛠️ Advanced Features
+## 🛠️ Plugin Development
 
-- **Persistent Identity**: Agents store their unique UUID locally in `.agent_id`.
-- **Live Orchestration**: WebSocket integration ensures zero-latency feedback on task status.
-- **Audit Reports**: Export full execution history to CSV for compliance and review.
-- **Windows Persistence**: Built-in plugin to establish Registry-based autorun (HKCU).
-- **API Documentation**: Fully interactive Swagger docs available at `/docs` (requires auth).
+The Dali Agent is designed for extensibility. To add a new capability, create a Python file in `agent/plugins/` that inherits from `BasePlugin`.
+
+**Example `screenshot.py`:**
+
+```python
+from .base import BasePlugin
+
+class ScreenshotPlugin(BasePlugin):
+    @property
+    def name(self): return "screenshot"
+
+    def execute(self, payload):
+        # Implementation logic here
+        return {"status": "success", "data": "...base64..."}
+```
 
 ---
 
 ## 📂 Project Structure
 
 ```text
-c2-framework/
-├── server/
-│   ├── auth.py         # JWT & Security logic
-│   ├── store.py        # Persistence & Orchestration logic
-│   ├── templates/      # Secure Dashboard & Login UI
-│   └── main.py         # FastAPI Entrypoint & WS Manager
-├── agent/
-│   ├── plugins/        # Modular task handlers (Drop-in system)
-│   ├── executor.py     # Plugin loader & Task router
-│   └── agent.py        # Main comms loop
-└── shared/             # Pydantic schemas
+dali-c2x2/
+├── server/             # FastAPI Control Plane
+│   ├── auth.py         # JWT & Bcrypt logic
+│   ├── store.py        # Persistence layer
+│   ├── models.py       # DB Schema
+│   └── templates/      # Secure UI (Dashboard & Login)
+├── agent/              # Managed Node Software
+│   ├── plugins/        # Dynamic Job Handlers
+│   ├── executor.py     # Task Router & Plugin Loader
+│   └── agent.py        # Main Loop & Comms
+├── shared/             # Pydantic Schemas
+└── images/             # Documentation Assets
 ```
 
 ## ⚖️ Legal Disclaimer
 
-This software is for **authorized testing and educational purposes only**. Misuse of this tool is strictly prohibited. The developer assumes no liability for illegal use.
+This software is intended for **authorized security testing and educational purposes only**. Using this tool on networks or systems without explicit permission is illegal. The developers assume no liability for misuse or damage caused by this software.
+
+---
+
+**Dali C 2x2 | Modern Orchestration for Modern Fleets.**
