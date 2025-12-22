@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from .models import Base, AgentModel, TaskModel
+from .models import Base, AgentModel, TaskModel, UserModel
 from datetime import datetime
 import uuid
 
@@ -104,3 +104,14 @@ class DataStore:
                 "total_tasks": task_count,
                 "pending_tasks": pending_count
             }
+
+    def get_user(self, username: str):
+        with self.SessionLocal() as db:
+            return db.query(UserModel).filter(UserModel.username == username).first()
+
+    def create_user(self, username: str, hashed_password: str, role: str = "operator"):
+        with self.SessionLocal() as db:
+            user = UserModel(username=username, hashed_password=hashed_password, role=role)
+            db.add(user)
+            db.commit()
+            return user

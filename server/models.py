@@ -29,3 +29,9 @@ class TaskModel(Base):
     expires_at = Column(DateTime)
     
     agent = relationship("AgentModel", back_populates="tasks")
+
+class UserModel(Base):
+    __tablename__ = "users"
+    username = Column(String, primary_key=True)
+    hashed_password = Column(String)
+    role = Column(String, default="operator")

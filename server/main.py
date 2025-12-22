@@ -42,10 +42,6 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# Hardcoded operator for demo (In real life, use a users table)
-OPERATOR_USER = "admin"
-OPERATOR_PASS_HASH = get_password_hash("password123")
-
 # Mount static files and templates
 app.mount("/static", StaticFiles(directory="server/static"), name="static")
 templates = Jinja2Templates(directory="server/templates")
@@ -60,10 +56,11 @@ async def login_page(request: Request):
 
 @app.post("/token")
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    if form_data.username != OPERATOR_USER or not verify_password(form_data.password, OPERATOR_PASS_HASH):
+    user = store.get_user(form_data.username)
+    if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     
-    access_token = create_access_token(data={"sub": form_data.username})
+    access_token = create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/api/agents")

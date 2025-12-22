@@ -9,5 +9,5 @@ jinja2
 aiofiles
 websockets
 python-jose[cryptography]
-passlib[bcrypt]
+bcrypt
 python-multipart

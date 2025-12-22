@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['C:\\Users\\moham\\Desktop\\c2-framework\\agent\\agent.py'],
+    ['C:\\Users\\moham\\Desktop\\Tools\\c2-framework\\agent\\agent.py'],
     pathex=[],
     binaries=[],
-    datas=[('C:\\Users\\moham\\Desktop\\c2-framework\\shared', 'shared')],
+    datas=[('C:\\Users\\moham\\Desktop\\Tools\\c2-framework\\shared', 'shared')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
