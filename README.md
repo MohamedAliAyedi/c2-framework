@@ -1,14 +1,14 @@
-# 🛸 Dali C 2x2: Professional Fleet Orchestration Framework
+# 🛸 Dali C2 😈: Professional Fleet Orchestration Framework
 
 ![Dali Dashboard Banner](images/dashboard.png)
 
-Dali C 2x2 is a high-performance, job-oriented Command & Control (C2) framework designed for secure node orchestration, auditing, and real-time surveillance. It features a modern, glassmorphic Control Plane and a modular, plugin-based agent architecture with military-grade encryption and identity spoofing.
+Dali C2 ❤️ is a high-performance, job-oriented Command & Control (C2) framework designed for secure node orchestration, auditing, and real-time surveillance. It features a modern, glassmorphic Control Plane and a modular, plugin-based agent architecture with military-grade encryption and identity spoofing.
 
 ---
 
 ## 🏗️ Technical Architecture
 
-Dali C 2x2 is built on a distributed architecture that separates the **Control Plane** (Server) from the **Managed Nodes** (Agents).
+Dali C2 ❤️ is built on a distributed architecture that separates the **Control Plane** (Server) from the **Managed Nodes** (Agents).
 
 - **Control Plane (FastAPI & WebSockets)**:
   - **JWT Authentication**: Secure operator access with hashed password storage.
@@ -101,6 +101,6 @@ AGENT_IDENTITY=browser       # Choose: browser, updater, etc.
 
 ## ⚖️ Legal Disclaimer
 
-This software is intended for **authorized security testing and educational purposes only**. Using this tool on networks or systems without explicit permission is illegal. The developers assume no liability for misuse or damage.
+This software is intended for **authorized security testing and educational purposes only**. Using this tool on networks or systems without explicit permission is illegal. The developer assume no liability for misuse or damage.
 
 **Dali C 2x2 | The Modern Standard for Fleet Intelligence.**
