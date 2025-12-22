@@ -5,7 +5,7 @@ import pkgutil
 from typing import Dict, Any, List
 try:
     from .plugins.base import BasePlugin
-except ImportError:
+except (ImportError, ValueError):
     from plugins.base import BasePlugin
 
 class Executor:
@@ -29,7 +29,12 @@ class Executor:
                 continue
             
             try:
-                module = importlib.import_module(f"agent.plugins.{name}")
+                # Try absolute import first
+                try:
+                    module = importlib.import_module(f"agent.plugins.{name}")
+                except ImportError:
+                    # Fallback to direct import if running agent as standalone
+                    module = importlib.import_module(name)
                 # Look for classes that inherit from BasePlugin
                 for item_name in dir(module):
                     item = getattr(module, item_name)
@@ -57,5 +62,8 @@ class Executor:
     @staticmethod
     def _get_sysinfo():
         # This is used for initial registration, we can reuse the plugin logic
-        from .plugins.sysinfo import SysinfoPlugin
+        try:
+            from agent.plugins.sysinfo import SysinfoPlugin
+        except ImportError:
+            from plugins.sysinfo import SysinfoPlugin
         return SysinfoPlugin().execute({})
