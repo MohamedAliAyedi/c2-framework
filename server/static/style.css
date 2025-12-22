@@ -153,19 +153,109 @@ button:hover {
   color: #a5f3fc;
 }
 
-.history-item {
-  border-left: 2px solid var(--accent);
-  padding-left: 1rem;
-  margin-bottom: 1.5rem;
+/* Job Table */
+.job-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
 }
 
-.history-header {
+.job-table th {
+  text-align: left;
+  padding: 1rem;
   font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--text-muted);
-  margin-bottom: 0.5rem;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
-.history-output {
+.job-table tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.2s;
+}
+
+.job-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.job-table td {
+  padding: 1rem;
+  vertical-align: middle;
+}
+
+/* Badges */
+.badge {
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.badge-pending {
+  background: rgba(234, 179, 8, 0.1);
+  color: #eab308;
+  border: 1px solid rgba(234, 179, 8, 0.2);
+}
+
+.badge-leased {
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--accent);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.badge-completed {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--success);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.badge-failed {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.result-block {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.8rem;
+  background: #000;
+  padding: 0.5rem;
+  border-radius: 0.4rem;
+  max-width: 400px;
+  max-height: 100px;
+  overflow: auto;
+  border: 1px solid #334155;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+/* Stats Container */
+.stats-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.stat-card {
+  padding: 1.25rem;
+  background: var(--bg-card);
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-top: 0.25rem;
 }

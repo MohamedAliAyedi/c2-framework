@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dali C 2x2 | Manager Dashboard</title>
-    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="stylesheet" href="/static/style.css?v=1.2" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -241,33 +241,39 @@
             const row = document.createElement("tr");
 
             let resultHtml =
-              '<span style="color: var(--text-muted)">Waiting for lease...</span>';
-            if (task.status === "leased")
+              '<span style="color: var(--text-muted); font-style: italic;">Queued for orchestration...</span>';
+            if (task.status === "leased") {
               resultHtml =
-                '<span style="color: var(--accent)">Processing on node...</span>';
-            if (task.result) {
+                '<span style="color: var(--accent); font-weight: 600;">Node has leased the job...</span>';
+            } else if (task.status === "failed") {
+              resultHtml = `<div class="result-block" style="border-color: var(--danger); color: var(--danger)">${
+                task.result?.error || "Unknown Error"
+              }</div>`;
+            } else if (task.result) {
               const out =
                 task.result.stdout ||
-                JSON.stringify(task.result.info || task.result).substring(
-                  0,
-                  100
-                );
-              resultHtml = `<pre>${out}</pre>`;
+                JSON.stringify(task.result.info || task.result, null, 2);
+              resultHtml = `<div class="result-block">${out}</div>`;
             }
 
+            const scheduledTime = new Date(task.created_at).toLocaleTimeString(
+              [],
+              { hour: "2-digit", minute: "2-digit", second: "2-digit" }
+            );
+            const jobType = task.type.toUpperCase();
+
             row.innerHTML = `
-                        <td class="agent-id">${task.id.substring(0, 8)}</td>
-                        <td><span class="badge badge-leased" style="background: rgba(255,255,255,0.05)">${
-                          task.type
-                        }</span></td>
-                        <td style="font-size: 0.75rem">${new Date(
-                          task.created_at
-                        ).toLocaleString()}</td>
-                        <td><span class="badge badge-${task.status}">${
+                <td><code style="color: var(--accent)">${task.id.substring(
+                  0,
+                  8
+                )}</code></td>
+                <td><span style="font-size: 0.7rem; font-weight: 800; opacity: 0.8;">${jobType}</span></td>
+                <td style="font-size: 0.75rem; color: var(--text-muted)">${scheduledTime}</td>
+                <td><span class="badge badge-${task.status}">${
               task.status
             }</span></td>
-                        <td>${resultHtml}</td>
-                    `;
+                <td>${resultHtml}</td>
+            `;
             container.appendChild(row);
           });
         } catch (e) {}

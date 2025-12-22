@@ -1,5 +1,8 @@
 import subprocess
-from .base import BasePlugin
+try:
+    from .base import BasePlugin
+except (ImportError, ValueError):
+    from base import BasePlugin
 from typing import Dict, Any
 
 class ShellPlugin(BasePlugin):

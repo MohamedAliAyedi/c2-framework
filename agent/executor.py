@@ -3,10 +3,14 @@ import sys
 import importlib
 import pkgutil
 from typing import Dict, Any, List
+# Ensure BasePlugin is available for subclass checking
 try:
-    from .plugins.base import BasePlugin
-except (ImportError, ValueError):
-    from plugins.base import BasePlugin
+    from agent.plugins.base import BasePlugin
+except ImportError:
+    try:
+        from plugins.base import BasePlugin
+    except ImportError:
+        from base import BasePlugin
 
 class Executor:
     _plugins: Dict[str, BasePlugin] = {}
@@ -29,12 +33,19 @@ class Executor:
                 continue
             
             try:
-                # Try absolute import first
-                try:
-                    module = importlib.import_module(f"agent.plugins.{name}")
-                except ImportError:
-                    # Fallback to direct import if running agent as standalone
-                    module = importlib.import_module(name)
+                # Always try the most specific package path first
+                module = None
+                for prefix in ["agent.plugins.", "plugins.", ""]:
+                    try:
+                        module = importlib.import_module(f"{prefix}{name}")
+                        break
+                    except ImportError:
+                        continue
+                
+                if not module:
+                    print(f"[!] Could not import plugin module {name}")
+                    continue
+
                 # Look for classes that inherit from BasePlugin
                 for item_name in dir(module):
                     item = getattr(module, item_name)
@@ -62,8 +73,20 @@ class Executor:
     @staticmethod
     def _get_sysinfo():
         # This is used for initial registration, we can reuse the plugin logic
-        try:
-            from agent.plugins.sysinfo import SysinfoPlugin
-        except ImportError:
-            from plugins.sysinfo import SysinfoPlugin
-        return SysinfoPlugin().execute({})
+        plugin = None
+        for prefix in ["agent.plugins.", "plugins.", ""]:
+            try:
+                module = importlib.import_module(f"{prefix}sysinfo")
+                # Look for the class
+                for item_name in dir(module):
+                    item = getattr(module, item_name)
+                    if (isinstance(item, type) and 
+                        item.__name__ == "SysinfoPlugin"):
+                        plugin = item()
+                        break
+                if plugin: break
+            except ImportError: continue
+        
+        if plugin:
+            return plugin.execute({})
+        return {"status": "error", "error": "Sysinfo plugin not found"}
