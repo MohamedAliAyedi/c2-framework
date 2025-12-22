@@ -2,57 +2,218 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Dali C 2x2 | Login</title>
-    <link rel="stylesheet" href="/static/style.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dali C 2x2 | Secure Login</title>
+    <link rel="stylesheet" href="/static/style.css?v=1.3" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap"
+      rel="stylesheet"
+    />
     <style>
-      .login-box {
-        max-width: 400px;
-        margin: 100px auto;
-        text-align: center;
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background-attachment: fixed;
+        overflow: hidden;
       }
+
+      .login-container {
+        width: 100%;
+        max-width: 440px;
+        padding: 20px;
+        z-index: 10;
+        animation: fadeIn 0.8s ease-out;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .login-box {
+        text-align: center;
+        padding: 3rem 2.5rem;
+      }
+
+      .login-box h1 {
+        font-size: 2rem;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+        background: linear-gradient(to right, #fff, #94a3b8);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .login-box p {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        margin-bottom: 2.5rem;
+      }
+
+      .input-group {
+        text-align: left;
+        margin-bottom: 1.5rem;
+      }
+
+      .input-group label {
+        display: block;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-weight: 700;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+        margin-left: 0.5rem;
+      }
+
       .login-box input {
         width: 100%;
-        margin-bottom: 1rem;
-        box-sizing: border-box;
+        font-size: 1rem;
+        padding: 1rem 1.25rem;
+        background: rgba(0, 0, 0, 0.4);
       }
+
       .login-box button {
         width: 100%;
-      }
-      .error {
-        color: var(--danger);
-        font-size: 0.8rem;
+        padding: 1rem;
+        font-size: 1rem;
         margin-top: 1rem;
+        box-shadow: 0 10px 20px rgba(56, 189, 248, 0.2);
+      }
+
+      .error {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        color: var(--danger);
+        padding: 0.75rem;
+        border-radius: 0.75rem;
+        font-size: 0.85rem;
+        margin-top: 1.5rem;
         display: none;
+        font-weight: 600;
+      }
+
+      /* Background Decoration */
+      .bg-glow {
+        position: absolute;
+        width: 500px;
+        height: 500px;
+        background: radial-gradient(
+          circle,
+          var(--accent-glow) 0%,
+          transparent 70%
+        );
+        border-radius: 50%;
+        filter: blur(60px);
+        z-index: 1;
+        opacity: 0.4;
+      }
+
+      .glow-1 {
+        top: -100px;
+        right: -100px;
+      }
+      .glow-2 {
+        bottom: -100px;
+        left: -100px;
       }
     </style>
   </head>
-  <body class="layout" style="display: block">
-    <div class="login-box glass-card">
-      <div class="logo" style="justify-content: center">
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
+  <body>
+    <div class="bg-glow glow-1"></div>
+    <div class="bg-glow glow-2"></div>
+
+    <div class="login-container">
+      <div class="login-box glass-card">
+        <div
+          class="logo"
+          style="justify-content: center; margin-bottom: 1.5rem"
         >
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        </svg>
-        Dali C 2x2
+          <svg
+            width="32"
+            height="32"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 2a10 10 0 1 0 10 10H12V2z" />
+            <path d="M12 12L2.7 7.3" />
+            <path d="M12 12V22" />
+            <path d="M12 12L21.3 7.3" />
+          </svg>
+          Dali <span>C 2x2</span>
+        </div>
+
+        <h1>Operator Portal</h1>
+        <p>Enter credentials to access the fleet control plane.</p>
+
+        <div class="input-group">
+          <label>Operator Username</label>
+          <input type="text" id="username" placeholder="admin" autofocus />
+        </div>
+
+        <div class="input-group">
+          <label>Access Code</label>
+          <input type="password" id="password" placeholder="••••••••" />
+        </div>
+
+        <button onclick="login()">Authenticate</button>
+
+        <div id="error-msg" class="error">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            style="margin-right: 8px; vertical-align: middle"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          Access Denied: Invalid Authentication
+        </div>
       </div>
-      <h1>Operator Login</h1>
-      <input type="text" id="username" placeholder="Username" />
-      <input type="password" id="password" placeholder="Password" />
-      <button onclick="login()">Enter Control Plane</button>
-      <div id="error-msg" class="error">Invalid username or password</div>
     </div>
 
     <script>
+      // Allow Enter key to submit
+      document.addEventListener("keypress", function (e) {
+        if (e.key === "Enter") {
+          login();
+        }
+      });
+
       async function login() {
         const user = document.getElementById("username").value;
         const pass = document.getElementById("password").value;
         const error = document.getElementById("error-msg");
+        const btn = document.querySelector("button");
+
+        if (!user || !pass) return;
+
+        // Visual feedback
+        btn.innerText = "Authenticating...";
+        btn.disabled = true;
+        error.style.display = "none";
 
         const formData = new FormData();
         formData.append("username", user);
@@ -70,9 +231,13 @@
             window.location.href = "/";
           } else {
             error.style.display = "block";
+            btn.innerText = "Authenticate";
+            btn.disabled = false;
           }
         } catch (e) {
           error.style.display = "block";
+          btn.innerText = "Authenticate";
+          btn.disabled = false;
         }
       }
     </script>
