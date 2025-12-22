@@ -109,7 +109,13 @@ async def get_agent_tasks_history(agent_id: str, user: str = Depends(get_current
     return tasks
 
 @app.post("/register")
-async def register_agent(agent_id: str, info: dict = None, version: str = "1.0.0"):
+async def register_agent(agent_id: str, request: Request, info: dict = None, version: str = "1.0.0"):
+    # Capture the client's IP address
+    client_ip = request.client.host
+    if info is None:
+        info = {}
+    info["ip"] = client_ip
+    
     store.register_agent(agent_id, info=info, version=version)
     await manager.broadcast({"event": "agent_registered", "agent_id": agent_id})
     return {"status": "registered", "agent_id": agent_id}

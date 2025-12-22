@@ -243,8 +243,10 @@
             }`;
             div.onclick = () => selectAgent(agent);
             const isOnline = agent.status === "online";
+            const displayName = agent.info?.user || agent.id.substring(0, 8);
+            const displayIp = agent.info?.ip || "0.0.0.0";
             div.innerHTML = `
-                <div class="agent-id">Node::${agent.id.substring(0, 8)}</div>
+                <div class="agent-id">Node::${displayName}</div>
                 <div class="agent-status" style="color: ${
                   isOnline ? "var(--success)" : "var(--text-muted)"
                 }">
@@ -254,8 +256,8 @@
                     ${agent.status.toUpperCase()}
                 </div>
                 <div class="agent-meta">
+                    <span style="color: var(--accent); font-weight: 600;">IP: ${displayIp}</span>
                     <span>OS: ${agent.info?.os || "---"}</span>
-                    <span>v${agent.version}</span>
                 </div>
             `;
             list.appendChild(div);
@@ -268,18 +270,22 @@
         document.getElementById("welcome-screen").style.display = "none";
         document.getElementById("agent-controls").style.display = "block";
         document.getElementById("terminal-container").style.display = "block";
+
+        const displayName = agent.info?.user || agent.id.substring(0, 8);
+        const displayIp = agent.info?.ip || "0.0.0.0";
         document.getElementById(
           "active-agent-title"
-        ).innerText = `Managed Node [${agent.id.substring(0, 8)}]`;
+        ).innerText = `Managed Node [${displayName} @ ${displayIp}]`;
 
         const tags = document.getElementById("node-tags");
         tags.innerHTML = `
             <span class="badge" style="background: rgba(255,255,255,0.05)">${
               agent.info?.user || "Unknown"
             }</span>
-            <span class="badge" style="background: rgba(56,189,248,0.1); color: var(--accent)">${
+            <span class="badge" style="background: rgba(56,189,248,0.1); color: var(--accent)">${displayIp}</span>
+            <span class="badge" style="background: rgba(34, 197, 94, 0.1); color: var(--success)">${
               agent.info?.os || "OS"
-            } ${agent.info?.machine || ""}</span>
+            }</span>
         `;
 
         fetchAgents();

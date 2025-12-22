@@ -11,3 +11,4 @@ websockets
 python-jose[cryptography]
 bcrypt
 python-multipart
+python-dotenv
