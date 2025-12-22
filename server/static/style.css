@@ -299,11 +299,73 @@ button.btn-danger:hover {
   justify-content: center;
 }
 
-#welcome-screen h1 {
-  font-size: 3rem;
-  margin-bottom: 1.5rem;
-  background: linear-gradient(to right, #fff, #94a3b8);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+/* Terminal Tabs */
+.tab-container {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.tab {
+  padding: 0.75rem 1.5rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  font-weight: 700;
+  transition: var(--transition);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.tab.active {
+  background: var(--accent);
+  color: var(--bg-dark);
+}
+
+/* Console UI */
+.console-wrapper {
+  background: #000;
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+  height: 500px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  box-shadow: 0 0 40px rgba(56, 189, 248, 0.05);
+}
+
+.console-output {
+  flex-grow: 1;
+  overflow-y: auto;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.9rem;
+  color: #a5f3fc;
+  margin-bottom: 1rem;
+  white-space: pre-wrap;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.console-input-area {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 1rem;
+}
+
+.console-prompt {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.console-input {
+  background: transparent !important;
+  border: none !important;
+  flex-grow: 1;
+  padding: 0 !important;
+  font-family: "JetBrains Mono", monospace;
+  box-shadow: none !important;
 }

