@@ -157,4 +157,6 @@ async def delete_agent(agent_id: str, user: str = Depends(get_current_user)):
     return {"status": "success"}
 
 if __name__ == "__main__":
-    uvicorn.run("server.main:app", host="0.0.0.0", port=8000, reload=True)
+    host = os.getenv("SERVER_HOST", "0.0.0.0")
+    port = int(os.getenv("SERVER_PORT", "8000"))
+    uvicorn.run("server.main:app", host=host, port=port, reload=True)

@@ -3,8 +3,12 @@ from sqlalchemy.orm import sessionmaker
 from .models import Base, AgentModel, TaskModel, UserModel
 from datetime import datetime
 import uuid
+import os
+from dotenv import load_dotenv
 
-DB_URL = "sqlite:///./c2_framework.db"
+load_dotenv()
+
+DB_URL = os.getenv("DB_URL", "sqlite:///./c2_framework.db")
 
 class DataStore:
     def __init__(self):

@@ -4,6 +4,9 @@ import uuid
 import sys
 import os
 import asyncio
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Add the parent directory or PyInstaller bundle directory to sys.path
 if getattr(sys, 'frozen', False):
