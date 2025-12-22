@@ -57,7 +57,32 @@
           </div>
           <div class="stat-card">
             <span class="stat-label">Orchestration</span>
-            <span class="stat-value">v1.1</span>
+            <div style="display: flex; gap: 5px">
+              <button
+                id="export-btn"
+                style="padding: 2px 8px; font-size: 0.6rem; margin-top: 5px"
+                onclick="exportAudit()"
+              >
+                Export Audit CSV
+              </button>
+              <a
+                href="/docs"
+                target="_blank"
+                style="
+                  padding: 2px 8px;
+                  font-size: 0.6rem;
+                  margin-top: 5px;
+                  background: var(--bg-dark);
+                  color: var(--accent);
+                  border: 1px solid var(--accent);
+                  border-radius: 0.5rem;
+                  text-decoration: none;
+                  display: flex;
+                  align-items: center;
+                "
+                >API Docs</a
+              >
+            </div>
           </div>
         </div>
 
@@ -123,10 +148,22 @@
 
     <script>
       let activeAgentId = null;
+      const accessToken = localStorage.getItem("access_token");
+
+      // Check if logged in
+      if (!accessToken) {
+        window.location.href = "/login";
+      }
 
       async function fetchStats() {
         try {
-          const response = await fetch("/api/stats");
+          const response = await fetch("/api/stats", {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          if (response.status === 401) {
+            localStorage.removeItem("access_token");
+            window.location.href = "/login";
+          }
           const stats = await response.json();
           document.getElementById("stat-online").innerText =
             stats.online_agents;
@@ -138,7 +175,9 @@
 
       async function fetchAgents() {
         try {
-          const response = await fetch("/api/agents");
+          const response = await fetch("/api/agents", {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
           const agents = await response.json();
           const list = document.getElementById("agent-list");
           list.innerHTML = "";
@@ -191,7 +230,9 @@
       async function fetchHistory() {
         if (!activeAgentId) return;
         try {
-          const response = await fetch(`/api/tasks/${activeAgentId}`);
+          const response = await fetch(`/api/tasks/${activeAgentId}`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
           const tasks = await response.json();
           const container = document.getElementById("task-history");
           container.innerHTML = "";
@@ -244,6 +285,7 @@
             )}`,
             {
               method: "POST",
+              headers: { Authorization: `Bearer ${accessToken}` },
             }
           );
           document.getElementById("task-command").value = "";
@@ -253,11 +295,53 @@
         }
       }
 
-      // Auto-refresh loops
-      setInterval(fetchAgents, 5000);
-      setInterval(fetchHistory, 3000);
-      setInterval(fetchStats, 5000);
+      async function exportAudit() {
+        try {
+          const response = await fetch("/api/tasks/export", {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "task_history_audit.csv";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        } catch (e) {
+          alert("Export failed");
+        }
+      }
 
+      // WebSocket for live updates
+      function connectWebSocket() {
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+        ws.onmessage = function (event) {
+          const data = JSON.parse(event.data);
+          console.log("WS Event:", data);
+
+          // Refresh relevant parts of the UI
+          fetchAgents();
+          fetchStats();
+          if (
+            activeAgentId &&
+            (data.agent_id === activeAgentId || !data.agent_id)
+          ) {
+            fetchHistory();
+          }
+        };
+
+        ws.onclose = function () {
+          console.log("WS Disconnected. Retrying in 5s...");
+          setTimeout(connectWebSocket, 5000);
+        };
+      }
+
+      connectWebSocket();
+
+      // Initial fetch
       fetchAgents();
       fetchStats();
     </script>

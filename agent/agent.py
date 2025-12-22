@@ -19,8 +19,20 @@ from shared.schemas import Task
 from executor import Executor
 
 SERVER_URL = os.getenv("C2_SERVER_URL", "http://localhost:8000")
-AGENT_ID = str(uuid.uuid4())
 VERSION = "1.1.0"
+
+def get_agent_id():
+    id_file = ".agent_id"
+    if os.path.exists(id_file):
+        with open(id_file, "r") as f:
+            return f.read().strip()
+    else:
+        new_id = str(uuid.uuid4())
+        with open(id_file, "w") as f:
+            f.write(new_id)
+        return new_id
+
+AGENT_ID = get_agent_id()
 
 async def register():
     # Gather system info for the dashboard

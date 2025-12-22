@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Dali C 2x2 | Login</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <style>
+      .login-box {
+        max-width: 400px;
+        margin: 100px auto;
+        text-align: center;
+      }
+      .login-box input {
+        width: 100%;
+        margin-bottom: 1rem;
+        box-sizing: border-box;
+      }
+      .login-box button {
+        width: 100%;
+      }
+      .error {
+        color: var(--danger);
+        font-size: 0.8rem;
+        margin-top: 1rem;
+        display: none;
+      }
+    </style>
+  </head>
+  <body class="layout" style="display: block">
+    <div class="login-box glass-card">
+      <div class="logo" style="justify-content: center">
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+        Dali C 2x2
+      </div>
+      <h1>Operator Login</h1>
+      <input type="text" id="username" placeholder="Username" />
+      <input type="password" id="password" placeholder="Password" />
+      <button onclick="login()">Enter Control Plane</button>
+      <div id="error-msg" class="error">Invalid username or password</div>
+    </div>
+
+    <script>
+      async function login() {
+        const user = document.getElementById("username").value;
+        const pass = document.getElementById("password").value;
+        const error = document.getElementById("error-msg");
+
+        const formData = new FormData();
+        formData.append("username", user);
+        formData.append("password", pass);
+
+        try {
+          const response = await fetch("/token", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            localStorage.setItem("access_token", data.access_token);
+            window.location.href = "/";
+          } else {
+            error.style.display = "block";
+          }
+        } catch (e) {
+          error.style.display = "block";
+        }
+      }
+    </script>
+  </body>
+</html>

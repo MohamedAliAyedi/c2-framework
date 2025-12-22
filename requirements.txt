@@ -7,3 +7,7 @@ apscheduler
 pyinstaller
 jinja2
 aiofiles
+websockets
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
