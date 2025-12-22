@@ -369,3 +369,53 @@ button.btn-danger:hover {
   font-family: "JetBrains Mono", monospace;
   box-shadow: none !important;
 }
+
+/* Modal System */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.kl-log-area {
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  font-family: "JetBrains Mono", monospace;
+  color: #fbbf24;
+  height: 400px;
+  overflow-y: auto;
+  margin-bottom: 1.5rem;
+  white-space: pre-wrap;
+  font-size: 0.9rem;
+}
+
+.kl-controls {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
