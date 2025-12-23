@@ -1020,11 +1020,17 @@
               // Finalize progress
               progressFill.style.width = '100%';
 
-              // Extract filename from header
+              // Extract filename from header (supporting filename* as well)
               const disposition = response.headers.get('Content-Disposition');
               let filename = "dali_agent.exe";
-              if (disposition && disposition.indexOf('filename=') !== -1) {
-                  filename = disposition.split('filename=')[1];
+              if (disposition) {
+                  const match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+                  if (match) {
+                      filename = decodeURIComponent(match[1]);
+                  } else {
+                      const simpleMatch = disposition.match(/filename="?([^";]+)"?/i);
+                      if (simpleMatch) filename = simpleMatch[1];
+                  }
               }
 
               const blob = await response.blob();

