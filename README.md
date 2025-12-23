@@ -47,7 +47,7 @@ The agent can hide in plain sight by masquerading as legitimate software.
 
 ## 🎮 Specialized Forensic Tooling
 
-Dali C 2x2 includes dedicated live-interaction modals for high-stakes telemetry:
+Dali C2 includes dedicated live-interaction modals for high-stakes telemetry:
 
 - **📟 Live Terminal**: A full pseudo-shell with command history (Up/Down arrows) and real-time results streaming.
 - **⌨️ HID Intercept**: A professional keylogger with a live data stream modal. Deploy, Monitor, and Terminate listeners in real-time.
@@ -103,4 +103,4 @@ AGENT_IDENTITY=browser       # Choose: browser, updater, etc.
 
 This software is intended for **authorized security testing and educational purposes only**. Using this tool on networks or systems without explicit permission is illegal. The developer assume no liability for misuse or damage.
 
-**Dali C 2x2 | The Modern Standard for Fleet Intelligence.**
+**Dali C2 | The Modern Standard for Fleet Intelligence.**

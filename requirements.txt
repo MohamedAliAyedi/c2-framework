@@ -16,3 +16,4 @@ pycryptodome
 pynput
 mss
 opencv-python
+Pillow
